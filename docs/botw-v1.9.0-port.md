@@ -464,6 +464,8 @@ heap or runtime failure.
 - `TOTK_OUTPUT_RES` unset (auto), gameplay, 360 s: a 2560x1440 swapchain, starting at 1920x1080; 6 key-3 presses
   (native 2K, off, MetalFX 2K, twice). At 200 s the line reads "FPS 59 2560x1440 (2560x1440) 1440p" in play.
 
+Panel record (2026-10-25, merge `a4de3da` with upstream `4fe0f8c`; `TOTK_OUTPUT_RES=screen`, Bottomless Bog copy, the owner clicked the settings panel's Resolution row, 475 s, window closed normally): 13 picture changes, every one logged right: 1080p (1920x1080) once, 1080p + MetalFX once, Native (3456x1944) 6 times and 2K + MetalFX (2560x1440, MetalFX to the window) 5 times. No failure line (`runtime_fail`, watchdog, null read, heap). The run did not record pictures or memory. Scripted clicks cannot drive the panel's pop-up menus.
+
 Test record: Apple M1 Pro, 16 GB, macOS 27.0, built-in 3456x2234 120 Hz display. Build: this change on `ee28c55`
 (main with the 1.9.0 follow-up fixes of #304); the same change on main `a988b5e` was built and played once more. The 2560x1440 and 3456x1944 runs came before the screen-size rule, which writes the same
 words for those two sizes. Each run used the shared game slot, a cloned app, a copied profile, `TOTK_AUDIO_OFF=1` and a
