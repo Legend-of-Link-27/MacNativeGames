@@ -587,6 +587,9 @@ static int native_k_parse(const char *e) {   /* -1 = not a size this mode takes 
     if (sscanf(e, "%ux%u%c", &w, &h, &end) != 2 || w % 128 || w / 16 * 9 != h || w / 16 <= 120 || w / 16 > NATIVE_K_MAX) return -1;
     return (int)(w / 16);
 }
+#if TARGET_OS_IPHONE
+static void native_screen_pixels(unsigned *w, unsigned *h) { *w = *h = 0; }   /* the phone never asks: output_parse stops first */
+#else
 #include <CoreGraphics/CoreGraphics.h>
 static void native_screen_pixels(unsigned *w, unsigned *h) {   /* the main display's native mode, else its current mode */
     CGDirectDisplayID d = CGMainDisplayID(); *w = *h = 0;
@@ -602,6 +605,7 @@ static void native_screen_pixels(unsigned *w, unsigned *h) {   /* the main displ
     if (opt) CFRelease(opt);
     if (!*w) { CGDisplayModeRef cur = CGDisplayCopyDisplayMode(d); if (cur) { *w = (unsigned)CGDisplayModeGetPixelWidth(cur); *h = (unsigned)CGDisplayModeGetPixelHeight(cur); CGDisplayModeRelease(cur); } }
 }
+#endif
 static unsigned native_round_up(double mib, unsigned step) { return (unsigned)ceil(mib / step) * step; }
 static void native_heaps(int k, unsigned *display_mib, unsigned *gpu_mib, unsigned *extra_mib) {
     double px = 144.0 * k * k, f = (px - 2560.0 * 1440) / (3456.0 * 1944 - 2560.0 * 1440);
@@ -845,6 +849,7 @@ static void output_parse(void) {
 static int g_out_start_big;   /* 1: the canvas starts at the largest size (1440p, screen, <w>x<h>) */
 static void output_parse(void) {
     if (g_out_mode >= 0) return;
+    if (ios_code()) { g_out_mode = OUT_OFF; return; }   /* the phone: the game's own size */
     const char *e = getenv("TOTK_OUTPUT_RES"); int k = 160;   /* 2560x1440 */
     g_out_mode = OUT_AUTO;
     if (e && (!strcmp(e, "0") || !strcasecmp(e, "1080p"))) { g_out_mode = OUT_OFF; return; }
@@ -1068,6 +1073,7 @@ int runtime_output_native(int mode, unsigned *w, unsigned *h) {
 #ifdef GAME_BOTW160
     *w = g_out_w; *h = g_out_h;
 #else
+    if (g_out_w < 2560) return 0;   /* a screen below 2560x1440: the swapchain cannot take the 2K canvas */
     *w = 2560; *h = 1440;   /* the largest size is 2560x1440 or bigger (screen); MetalFX scales this canvas to the window */
 #endif
     return 1;
