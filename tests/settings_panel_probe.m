@@ -726,31 +726,39 @@ int main(int argc, const char **argv) { @autoreleasepool {
     NSButton *addUser = settingsPanel.userButtons[0];
     assert([addUser.title isEqualToString:@"Add User…"] && !addUser.hidden);
     pick(@"User (from the next launch)", @"Zelda");
-    tick();   /* the row is made again with Zelda marked */
+    /* the row is made again with Zelda marked (the remake is dispatched); a run loop pass can end before it is
+       served, so wait for it instead of counting passes */
+    for (int i = 0; i < 100 && [menu(@"User (from the next launch)").titleOfSelectedItem isEqualToString:@"Local"]; i++) tick();
     addUser = settingsPanel.userButtons[0];
     assert(fakeUsersActive == 1 && settingsPanel.rows.count == 2 &&
            [menu(@"User (from the next launch)").titleOfSelectedItem isEqualToString:@"Zelda"]);
-    [addUser performClick:nil]; tick(); tick();   /* the text bar opens; the panel closed */
+    [addUser performClick:nil];
+    for (int i = 0; i < 100 && settingsOpen; i++) tick();   /* the text bar opens; the panel closed */
     assert(!settingsOpen && settingsPanel.hidden);
     runtime_front_text_test("type", "Link"); tick();
-    runtime_front_text_test("enter", ""); tick(); tick();
+    runtime_front_text_test("enter", "");
+    for (int i = 0; i < 100 && !settingsOpen; i++) tick();   /* the panel comes back, the user kept */
     assert(settingsOpen && fakeUsersCount == 3 && !strcmp(fakeUsers[2].name, "Link"));
     assert(menu(@"User (from the next launch)").numberOfItems == 3 &&
            [menu(@"User (from the next launch)").titleOfSelectedItem isEqualToString:@"Zelda"]);
     addUser = settingsPanel.userButtons[0];
-    [addUser performClick:nil]; tick(); tick();   /* Escape answers the bar: nothing is added */
-    runtime_front_text_test("esc", ""); tick(); tick();
+    [addUser performClick:nil];
+    for (int i = 0; i < 100 && settingsOpen; i++) tick();
+    runtime_front_text_test("esc", "");   /* Escape answers the bar: nothing is added */
+    for (int i = 0; i < 100 && !settingsOpen; i++) tick();
     assert(settingsOpen && fakeUsersCount == 3);
     addUser = settingsPanel.userButtons[0];
     while (fakeUsersCount < RUNTIME_USERS_MAX) assert(runtime_users_add("Filler") >= 0);
-    [addUser performClick:nil]; tick(); tick();   /* the console is full: the bar still asks, the user is not kept */
+    [addUser performClick:nil];
+    for (int i = 0; i < 100 && settingsOpen; i++) tick();   /* the console is full: the bar still asks, the user is not kept */
     runtime_front_text_test("type", "Extra"); tick();
-    runtime_front_text_test("enter", ""); tick(); tick();
+    runtime_front_text_test("enter", "");
+    for (int i = 0; i < 100 && !settingsOpen; i++) tick();
     assert(settingsOpen && fakeUsersCount == RUNTIME_USERS_MAX);
     assert([settingsPanel.versionLabel.stringValue containsString:@"At most 8 users"]);
     while (fakeUsersCount > 2) fakeUsersCount--;   /* the two the next checks name */
     pick(@"User (from the next launch)", @"Local");
-    tick();
+    for (int i = 0; i < 100 && ![menu(@"User (from the next launch)").titleOfSelectedItem isEqualToString:@"Local"]; i++) tick();
     assert(fakeUsersActive == 0 && [menu(@"User (from the next launch)").titleOfSelectedItem isEqualToString:@"Local"]);
 
     /* Key bindings and the Update page follow the user page in the tabs, so the checks below start on the input page again. */
