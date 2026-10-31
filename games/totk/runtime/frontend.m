@@ -520,13 +520,54 @@ static void note_occlusion(const char *when){int v=(window.occlusionState&NSWind
 static TOTKWindowDelegate *windowDelegate;
 int runtime_front_window_visible(void){return atomic_load(&windowVisible);}
 void runtime_front_request_close(void){dispatch_async(dispatch_get_main_queue(), ^{[window performClose:nil];});}
+/* Native app-menu actions must also work while a settings control owns first responder. */
+@interface TOTKMenuActions:NSObject<NSMenuItemValidation>
+-(void)openSettings:(id)sender;
+-(void)toggleFullscreen:(id)sender;
+-(void)chooseFrameLimit:(NSMenuItem *)sender;
+@end
+@implementation TOTKMenuActions
+-(void)openSettings:(id)sender{(void)sender;settings_show(1);}
+-(void)toggleFullscreen:(id)sender{(void)sender;[window toggleFullScreen:nil];}
+-(void)chooseFrameLimit:(NSMenuItem *)sender{
+ int fps=(int)sender.tag;nvn_fps_lock_set(fps);
+ if(fps)dm_gfx_set_flag("mfx_interp",MFX_OFF);
+ settings_save_frame();settings_refresh_all();
+}
+-(BOOL)validateMenuItem:(NSMenuItem *)item{
+ if(item.action==@selector(toggleFullscreen:))item.title=@((window.styleMask&NSWindowStyleMaskFullScreen)?TOTK_UI("退出全屏","Exit Full Screen"):TOTK_UI("进入全屏","Enter Full Screen"));
+ if(item.action==@selector(chooseFrameLimit:))item.state=nvn_fps_lock()==item.tag?NSControlStateValueOn:NSControlStateValueOff;
+ return window!=nil && !(item.action==@selector(openSettings:)&&textEntryOpen);
+}
+@end
+static TOTKMenuActions *menuActions;
 /* Use the window-close path, not terminate:, so Command-Q also waits for active saves. */
 static void front_install_menu(void){
- NSMenu *menu=[NSMenu new],*appMenu=[NSMenu new];
- NSMenuItem *appItem=[NSMenuItem new];appItem.submenu=appMenu;[menu addItem:appItem];
+ menuActions=[TOTKMenuActions new];
+ NSMenu *menu=[NSMenu new],*appMenu=[[NSMenu alloc] initWithTitle:@GAME_NAME];
+ NSMenuItem *appItem=[[NSMenuItem alloc] initWithTitle:@GAME_NAME action:nil keyEquivalent:@""];
+ appItem.submenu=appMenu;[menu addItem:appItem];
+ NSMenuItem *settings=[[NSMenuItem alloc] initWithTitle:@(TOTK_UI("设置…","Settings…")) action:@selector(openSettings:) keyEquivalent:@","];
+ settings.keyEquivalentModifierMask=NSEventModifierFlagCommand;settings.target=menuActions;[appMenu addItem:settings];
+ [appMenu addItem:NSMenuItem.separatorItem];
  NSMenuItem *quit=[[NSMenuItem alloc] initWithTitle:@(TOTK_UI("退出 " GAME_NAME,"Quit " GAME_NAME)) action:@selector(performClose:) keyEquivalent:@"q"];
- quit.keyEquivalentModifierMask=NSEventModifierFlagCommand;quit.target=window;
- [appMenu addItem:quit];front_menubar_fps_add(menu);NSApp.mainMenu=menu;
+ quit.keyEquivalentModifierMask=NSEventModifierFlagCommand;quit.target=window;[appMenu addItem:quit];
+ NSMenu *view=[[NSMenu alloc] initWithTitle:@(TOTK_UI("显示","View"))];
+ NSMenuItem *viewItem=[[NSMenuItem alloc] initWithTitle:view.title action:nil keyEquivalent:@""];viewItem.submenu=view;[menu addItem:viewItem];
+ NSMenuItem *full=[[NSMenuItem alloc] initWithTitle:@(TOTK_UI("进入全屏","Enter Full Screen")) action:@selector(toggleFullscreen:) keyEquivalent:@"f"];
+ full.keyEquivalentModifierMask=NSEventModifierFlagControl|NSEventModifierFlagCommand;full.target=menuActions;[view addItem:full];
+ NSMenu *rates=[[NSMenu alloc] initWithTitle:@(TOTK_UI("渲染帧率上限","Render Frame Limit"))];
+ NSMenuItem *ratesItem=[[NSMenuItem alloc] initWithTitle:rates.title action:nil keyEquivalent:@""];ratesItem.submenu=rates;[view addItem:ratesItem];
+ const int fps[]={0,30,40,60,72,90,120};
+ for(unsigned i=0;i<sizeof fps/sizeof fps[0];i++){
+  NSString *title=fps[i]?[NSString stringWithFormat:@"%d FPS",fps[i]]:@(TOTK_UI("不限帧","Uncapped"));
+  NSMenuItem *item=[[NSMenuItem alloc] initWithTitle:title action:@selector(chooseFrameLimit:) keyEquivalent:@""];
+  item.tag=fps[i];item.target=menuActions;[rates addItem:item];
+ }
+ NSInteger hz=window.screen.maximumFramesPerSecond;
+ NSMenuItem *screen=[[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@(TOTK_UI("显示器刷新率：%ld Hz","Display refresh: %ld Hz")),(long)hz] action:nil keyEquivalent:@""];
+ screen.enabled=NO;[view addItem:screen];
+ front_menubar_fps_add(menu);NSApp.mainMenu=menu;
 }
 static void *guest_main(void *callback){@autoreleasepool{((void(*)(void))callback)();}return NULL;}
 void runtime_front_run(void(*callback)(void)){
@@ -554,6 +595,9 @@ void runtime_front_run(void(*callback)(void)){
   windowDelegate=[TOTKWindowDelegate new];window.delegate=windowDelegate;
   front_install_menu();
   window.collectionBehavior|=NSWindowCollectionBehaviorFullScreenPrimary;
+  window.tabbingMode=NSWindowTabbingModeDisallowed;
+  NSButton *fullButton=[window standardWindowButton:NSWindowZoomButton];
+  fullButton.target=window;fullButton.action=@selector(toggleFullScreen:);
   window.contentView=[[TOTKInputView alloc] initWithFrame:NSMakeRect(0,0,ww,wh)];
   metalLayer=[CAMetalLayer layer];metalLayer.device=MTLCreateSystemDefaultDevice();metalLayer.pixelFormat=MTLPixelFormatBGRA8Unorm;metalLayer.drawableSize=CGSizeMake(ww,wh);runtime_aspect_view(ww,wh);
   metalLayer.framebufferOnly=NO;window.contentView.wantsLayer=YES;window.contentView.layer=metalLayer;
