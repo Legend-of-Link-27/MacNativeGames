@@ -569,6 +569,26 @@ static void front_install_menu(void){
  screen.enabled=NO;[view addItem:screen];
  front_menubar_fps_add(menu);NSApp.mainMenu=menu;
 }
+/* execv can make Launch Services show the nested runtime as a generic Unix executable.
+   Recover the enclosing app's own icon, including launches from the diagnostic command line. */
+static void front_install_bundle_icon(void) {
+ NSString *path=NSProcessInfo.processInfo.arguments.firstObject;
+ if(!path.length)return;
+ if(!path.isAbsolutePath)path=[NSFileManager.defaultManager.currentDirectoryPath stringByAppendingPathComponent:path];
+ path=path.stringByResolvingSymlinksInPath;
+ while(path.length>1){
+  if([path.pathExtension.lowercaseString isEqualToString:@"app"]){
+   NSBundle *bundle=[NSBundle bundleWithPath:path];
+   NSString *name=[bundle objectForInfoDictionaryKey:@"CFBundleIconFile"];
+   if(![name isKindOfClass:NSString.class]||!name.length)return;
+   if(!name.pathExtension.length)name=[name stringByAppendingPathExtension:@"icns"];
+   NSImage *icon=[[NSImage alloc] initWithContentsOfFile:[bundle.resourcePath stringByAppendingPathComponent:name]];
+   if(icon)NSApp.applicationIconImage=icon;
+   return;
+  }
+  path=path.stringByDeletingLastPathComponent;
+ }
+}
 static void *guest_main(void *callback){@autoreleasepool{((void(*)(void))callback)();}return NULL;}
 void runtime_front_run(void(*callback)(void)){
  @autoreleasepool{
@@ -580,6 +600,7 @@ void runtime_front_run(void(*callback)(void)){
   if(totk_sr_start)totk_sr_start("totk",TOTK_GAME_VERSION);
 #endif
   [NSApplication sharedApplication];[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+  front_install_bundle_icon();
   runtime_mouse_set_hook(front_mouse_update);
   runtime_gamepad_start();
   /* Default window: the docked output size, 1920x1080, scaled down (16:9 kept) when the screen's visible area is smaller. */
