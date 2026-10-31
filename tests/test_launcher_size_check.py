@@ -16,8 +16,7 @@ class LauncherSizeTests(unittest.TestCase):
             binary = Path(d) / 'launcher-probe'
             command = ['clang', '-fobjc-arc', '-O2', '-Wall', '-DTOTK_GAME_V121=1',
                        '-I' + str(game / 'third_party/d2r_gfx/gfx/nvn'), '-I' + str(game / 'runtime'),
-                       '-I' + str(game / 'app'), str(ROOT / 'tests/cheat_vm/launcher_probe.m'),
-                       str(game / 'app/save_sync.c'), str(game / 'app/webdav_sync.m')]
+                       '-I' + str(game / 'app'), str(ROOT / 'tests/cheat_vm/launcher_probe.m')]
             for framework in ('AppKit', 'GameController', 'IOKit', 'Foundation'):
                 command += ['-framework', framework]
             subprocess.run(command + ['-o', str(binary)], check=True, capture_output=True, text=True, timeout=60)
