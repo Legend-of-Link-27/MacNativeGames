@@ -571,6 +571,18 @@ static void front_install_menu(void){
 }
 /* execv can make Launch Services show the nested runtime as a generic Unix executable.
    Recover the enclosing app's own icon, including launches from the diagnostic command line. */
+#if defined(TOTK_GAME_V121)
+/* A Dock icon is a native UI drawing, keeping the supplied cover unchanged.
+   The transparent inset and clip match the rounded silhouettes of macOS icons. */
+static NSImage *front_dock_icon(NSImage *source){
+ NSImage *out=[[NSImage alloc] initWithSize:NSMakeSize(1024,1024)];
+ [out lockFocus];NSRect bounds=NSMakeRect(0,0,1024,1024),face=NSInsetRect(bounds,64,64);
+ NSRectFillUsingOperation(bounds,NSCompositingOperationClear);
+ [[NSBezierPath bezierPathWithRoundedRect:face xRadius:198 yRadius:198] addClip];
+ [source drawInRect:face fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:NO hints:@{NSImageHintInterpolation:@(NSImageInterpolationHigh)}];
+ [out unlockFocus];return out;
+}
+#endif
 static void front_install_bundle_icon(void) {
  NSString *path=NSProcessInfo.processInfo.arguments.firstObject;
  if(!path.length)return;
@@ -583,7 +595,13 @@ static void front_install_bundle_icon(void) {
    if(![name isKindOfClass:NSString.class]||!name.length)return;
    if(!name.pathExtension.length)name=[name stringByAppendingPathExtension:@"icns"];
    NSImage *icon=[[NSImage alloc] initWithContentsOfFile:[bundle.resourcePath stringByAppendingPathComponent:name]];
-   if(icon)NSApp.applicationIconImage=icon;
+   if(icon){
+#if defined(TOTK_GAME_V121)
+    NSApp.applicationIconImage=front_dock_icon(icon);
+#else
+    NSApp.applicationIconImage=icon;
+#endif
+   }
    return;
   }
   path=path.stringByDeletingLastPathComponent;
