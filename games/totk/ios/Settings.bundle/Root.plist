@@ -144,7 +144,7 @@
 			<key>Title</key>
 			<string>觸控操作 · Touch controls</string>
 			<key>FooterText</key>
-			<string>未連接手柄時使用手機的陀螺儀和觸覺馬達；接上手柄後自動讓位。重新啟動遊戲後生效 · uses the phone's gyro and haptic actuator with no controller connected; a connected controller takes over. Takes effect after relaunching the game</string>
+			<string>未連接手柄、或手柄沒有陀螺儀時，用手機的陀螺儀與觸覺馬達；有陀螺儀的手柄接手後：碰螢幕換回手機，操作手柄交還。重新啟動遊戲後生效 · uses the phone's gyro and haptic actuator when no controller is connected, or the controller has no gyro; a controller with motion takes the aiming over until the screen is touched (its sticks or buttons take it back). Takes effect after relaunching the game</string>
 		</dict>
 		<dict>
 			<key>Type</key>
