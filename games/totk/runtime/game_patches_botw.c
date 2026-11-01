@@ -568,9 +568,8 @@ static void patch_render_1080(Module *m) {
    nninitStartup. So: 80 MiB display heap, 192 MiB GPU heap, and memory and root heaps 512 MiB bigger (128 MiB was
    enough at Kakariko; the rest is headroom for the heaps that take what RootHeap has left; runtime_output_res_extra_bytes
    adds it to the application pool). Peak footprint 3172 MiB (1080p: 3058). */
-/* Sizes: TOTK_OUTPUT_RES=screen takes the largest 16:9 size of the main display's native mode (the owner, 2026-10-23: not a
-   fixed size, the Mac screen's largest resolution at 16:9); 1440p is 2560x1440 and 1080p the game's own size (the names the
-   owner asked for); <w>x<h> takes one 16:9 size directly, fixed (for tests). A size is 16k x 9k with
+/* Sizes: TOTK_OUTPUT_RES=screen takes the largest 16:9 size of the main display's native mode (not a fixed size: the Mac
+   screen's largest resolution at 16:9); 1440p is 2560x1440 and 1080p the game's own size; <w>x<h> takes one 16:9 size directly, fixed (for tests). A size is 16k x 9k with
    k a multiple of 8 (both sides multiples of 8, the sizes that were tested),
    above 1920x1080 and at most 3456x1944: the memory heap is then 3888 MiB, under the host's 4 GiB heap cap (services.c
    HEAP_CAP). This Mac's 3456x2234 panel gives 3456x1944; 2560x1664 gives 2560x1440; 3024x1964 gives 2944x1656. The heaps
@@ -851,7 +850,7 @@ int runtime_render_res(unsigned *w, unsigned *h) { (void)w; (void)h; return 0; }
      main+0x12660d4  movk x8, #0x438, lsl #32    -> ldr x8, [x8, #24]
      main+0x12660f0  mov w4, #0x438              -> ldr w4, [sp, #4]
      main+0x1266104  mov w3, #0x780              -> ldr w3, [sp]
-   1.9.0 values (the owner, 2026-10-23: change it in game, keep the screen size): unset or auto as 1.6.0; 1440p the same
+   1.9.0 values (changed in play, the screen size kept): unset or auto as 1.6.0; 1440p the same
    cycle, starting at 2560x1440; screen takes the largest 16:9 size of the main display (native_k_from_screen), starts at
    it, and the settings panel's picture offers off, MetalFX 2K, native (the screen size) and native 2K + MetalFX (the
    2560x1440 canvas that MetalFX scales to the window);
@@ -1095,7 +1094,7 @@ int runtime_game_fps_limit(void) {
    on 1.9.0 also 1440p and screen) the panel also offers native: the canvas and the scene at the largest size of the
    session (output_switch; 2560x1440, or the screen size under TOTK_OUTPUT_RES=screen), and native + MetalFX: the
    2560x1440 canvas that MetalFX scales to the window (1.9.0 on a screen bigger than 2K: bog 2026-10-24, clean edges at 51
-   FPS, native 2K 50, the screen size 42-44). 1.6.0 also offers 720p (both 1280x720); 1.9.0 does not (not tested there).
+   FPS, native 2K 50, the screen size 42-44). Both versions also offer 720p (the canvas and the scene at 1280x720).
    Otherwise off and MetalFX 2K. */
 static int output_switchable(void) { return g_out_mode == OUT_AUTO && g_out_page; }
 static unsigned output_width_now(void) { return (unsigned)(atomic_load(&g_out_cur) & 0xffffffffu); }
@@ -1114,19 +1113,14 @@ int runtime_output_native(int mode, unsigned *w, unsigned *h) {
 }
 int runtime_output_modes(void) {
     unsigned w, h;
-    return 1 << OUTPUT_MODE_OFF | 1 << OUTPUT_MODE_METALFX |
-#ifdef GAME_BOTW160
-           (output_switchable() ? 1 << OUTPUT_MODE_720P : 0) |
-#endif
+    return 1 << OUTPUT_MODE_OFF | 1 << OUTPUT_MODE_METALFX | (output_switchable() ? 1 << OUTPUT_MODE_720P : 0) |
            (runtime_output_native(OUTPUT_MODE_NATIVE, &w, &h) ? 1 << OUTPUT_MODE_NATIVE | 1 << OUTPUT_MODE_NATIVE_METALFX : 0);
 }
 int runtime_output_mode(void) {
     extern int mfxup_enabled(void);
     if (output_switchable()) {
         unsigned w = output_width_now();
-#ifdef GAME_BOTW160
         if (w == 1280) return OUTPUT_MODE_720P;
-#endif
         if (w > 1920) return mfxup_enabled() ? OUTPUT_MODE_NATIVE_METALFX : OUTPUT_MODE_NATIVE;
     }
     return mfxup_enabled() ? OUTPUT_MODE_METALFX : OUTPUT_MODE_OFF;
