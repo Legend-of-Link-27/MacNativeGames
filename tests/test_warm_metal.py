@@ -232,6 +232,8 @@ class MetalCompilerTests(unittest.TestCase):
         self.assertTrue(build_app.native_4k_default(16 << 30))   # what a 16 GB Mac reports
         self.assertTrue(build_app.native_4k_default(36 << 30))
         self.assertFalse(build_app.native_4k_default(8 << 30))
+        self.assertTrue(build_app.native_5k_roomy(32 << 30) and build_app.native_5k_roomy(64 << 30))   # --native-5k warns below
+        self.assertFalse(build_app.native_5k_roomy(16 << 30) or build_app.native_5k_roomy(24 << 30))
 
     def test_volume_search_finds_xcodes_and_does_not_follow_symlinks(self):
         with tempfile.TemporaryDirectory() as t:

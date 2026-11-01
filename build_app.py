@@ -919,6 +919,18 @@ def native_4k_default(memory=None):
     return memory >= NATIVE_4K_MEMORY - (256 << 20)   # 16 GB Macs report exactly 16 GiB; a little slack
 
 
+NATIVE_5K_MEMORY = 32 << 30   # --native-5k reserves about 2.7 GiB more than 4K: below this the build warns (after PR #1515)
+
+
+def native_5k_roomy(memory=None):
+    """Whether this Mac has the memory native 5K is meant for (a 5120x2880 canvas and scene, opt-in)."""
+    if memory is None:
+        try:
+            memory = int(subprocess.check_output(['sysctl', '-n', 'hw.memsize'], text=True).strip())
+        except (OSError, subprocess.CalledProcessError, ValueError):
+            return True   # unknown: no warning
+    return memory >= NATIVE_5K_MEMORY - (256 << 20)
+
 
 def step_update_data(tree, game, update, keys, logs, *, version='v112', mod=None, native_4k=False, native_5k=False):
     expected = VERSIONS[version]
@@ -2283,7 +2295,9 @@ def main(argv):
         say('native 4K: ' + ('on' if native_4k else 'off') + ('' if args.native_4k is not None else
             ' (this Mac has ' + ('16 GB or more' if native_4k else 'less than 16 GB') + ' of memory; --native-4k / --no-native-4k decide)'))
     if args.native_5k:
-        say('native 5K: on (5120x2880 canvas and scene; opt-in)')
+        say('native 5K: on (5120x2880 canvas and scene; opt-in)' + ('' if native_5k_roomy() else
+            '. Note: this Mac has less than 32 GB of memory; a native 5K app reserves about 2.7 GiB more than a 4K one at'
+            ' every start, whatever is shown'))
     step_code(tree, game, keys, env, logs, mod=None if update else code_mod)
     if update:
         step_code(tree, update, keys, env, logs, version=version,
