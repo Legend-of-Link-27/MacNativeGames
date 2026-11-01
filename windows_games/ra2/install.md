@@ -75,22 +75,35 @@ The game runs in a window you can resize (the picture keeps its aspect) and take
 scripts/build.sh                   # on the Mac first: the recompiled code
 scripts/ios/build_app.sh           # one app, asking which game to play (builds SDL3, glslang, SPIRV-Cross and a
                                    # decoders-only ffmpeg for iOS the first time)
-python3 -I scripts/ios/install_device.py [--game game/install]   # signs with your own team, installs by cable
+python3 -I scripts/ios/install_device.py --game game/install   # signs with your own team, installs by cable
 ```
 
-The app reads the games from its Documents folder: copy your install there as `RA2` (Finder › iPhone › Files), or pass
-`--game` to `install_device.py`. With `--game` the movie archives go as compact copies made once on the Mac
+`--game` puts your own install into the app before it is signed, so it is ready to play once installed (about 1.3 GB,
+under a minute by cable). The game files in the app are read-only; saves and settings go to the app's Documents and
+stay when you install again. The movie archives go in as compact copies made once on the Mac
 (`scripts/ios/compact_movies.py`, needs `brew install ffmpeg`, about 10 minutes the first time): every movie's frames
-re-encoded from Bink to VP9 and Opus, about 1.1 GB on the phone instead of 1.9 GB; `--full-movies` sends the originals.
+re-encoded from Bink to VP9 and Opus, about 1.1 GB of game files instead of 1.9 GB; `--full-movies` puts in the
+originals. An app installed without `--game` reads the install from its Documents folder instead: copy it there as
+`RA2` (Finder › iPhone › Files).
 The touch controls (stick, group buttons, force fire, cancel) appear in a match. The
 app icon is drawn by `scripts/ios/make_icon.py` (original artwork, no game assets or publisher logos).
 
-## Chinese
+## Languages
 
-`python3 -I scripts/make_zh_hans.py <a Chinese LANGUAGE.MIX> game/install [<translation of Yuri's Revenge's own strings>]`
-converts the string table of your own Traditional Chinese copy to Simplified Chinese (OpenCC, `brew install opencc`),
-adds the missing glyphs to the game font from a system font and writes both into the game directory, which the game
-reads before its MIX files. The MIX public key it needs is read from your own `game.exe` (`scripts/mixls.py`).
+English, 繁體中文 (Traditional Chinese, the Steam release's official one) and 简体中文 (Simplified Chinese, converted from
+it). The Chinese ones come from the Steam language pack (depot 2229855; with steamcmd, logged in to your own account:
+`steamcmd +@sSteamCmdForcePlatformType windows +login <you> +download_depot 2229850 2229855 +quit`):
+
+```sh
+python3 -I scripts/languages.py game/install <the pack's folder>
+```
+
+writes `game/install/lang/zh-Hant` (the official string tables as they are) and `lang/zh-Hans` (converted with OpenCC,
+`brew install opencc`, and the game font with the glyphs Big5 lacks drawn from Noto Sans CJK SC / Source Han Sans,
+SIL OFL 1.1, downloaded at a pinned commit and checked). The game then follows the
+system's language; `--language en|zh-Hant|zh-Hans` (or `RA2_LANGUAGE` / `YR_LANGUAGE`) chooses on the Mac, and on the
+iPhone and iPad a button in the first dialog (kept for the next start). The MIX public key is read from your own
+`game.exe` (`scripts/mixls.py`).
 
 ## Tests
 

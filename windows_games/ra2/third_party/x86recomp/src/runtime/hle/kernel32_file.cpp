@@ -183,7 +183,14 @@ std::string HostPath(const std::string& guest_path, PathAccess access) {
   if (InstallComponents(g, &comps)) {
     std::string over = Resolve(OverlayRoot(), comps);
     if (access == PathAccess::kRead) {
-      return Exists(over) ? over : Resolve(g_proc->game_dir, comps);
+      if (Exists(over)) return over;
+      // GameConfig::install_files: the launcher's file for this one, or
+      // none ("" names no file).
+      if (comps.size() == 1) {
+        const auto it = Game().install_files.find(win32::Lower(comps[0]));
+        if (it != Game().install_files.end()) return it->second;
+      }
+      return Resolve(g_proc->game_dir, comps);
     }
     // Mirror the parent directory into the overlay if the guest sees it.
     std::string parent = over.substr(0, over.find_last_of('/'));

@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -177,6 +178,12 @@ struct GameConfig {
     uint32_t (*visible_rows)() = nullptr;
   };
   std::vector<MovieReplacement> movie_replacements;
+
+  // Files at the top of the install that the launcher puts elsewhere, by
+  // lower-case name: the game reads the host file given instead (a
+  // language's string table, say), or no file at all when it is empty.
+  // What the game writes still goes to the overlay, which comes first.
+  std::map<std::string, std::string> install_files;
 
   // DLLs the game loads itself (LoadLibrary) whose code is lifted with
   // the EXE (recomp_lift --module), e.g. a game logic DLL. They

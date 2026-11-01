@@ -1,7 +1,7 @@
 // WinNativeGames: Red Alert 2 (1.006), recompiled.
 //
 //   ra2 [--game <install dir>] [--resolution auto|WxH|ini] [--sidebar-scale <s>]
-//       [--no-command-bar]
+//       [--no-command-bar] [--language en|zh-Hant|zh-Hans]
 //       [--fps-cap <n>] [game arguments...]
 //
 // The install dir is the player's own Red Alert 2 install; it defaults to
@@ -9,9 +9,9 @@
 // process image; Blowfish.dll (the COM server that decrypts MIX headers) is
 // lifted with it.
 //
-// On iOS the player copies the install into the app's Documents/RA2
-// (Finder or the Files app); saves, settings and the log (ra2-log.txt) go
-// in Documents too.
+// On iOS the install is in the app (put there by install_device.py), or in
+// the app's Documents/RA2 (ra2::IosGameDir); saves, settings and the log
+// (ra2-log.txt) go in Documents.
 
 #include <cstdio>
 #include <cstdlib>
@@ -58,7 +58,7 @@ recomp::GameConfig Config(const std::string& game_dir) {
   g.lifted_dlls = {
       {"Blowfish.dll"},  // CoCreateInstance'd by GAME.EXE (MIX header decryption)
   };
-  g.ansi_code_page = ra2::CodePage(game_dir, "RA2.CSF");
+  ra2::UseLanguage(g, game_dir, ra2::ChooseLanguage(game_dir, "RA2"));
   ra2::AddPlayControls(g);
   // GAME.EXE only runs when started by its launcher (launcher.cpp).
   g.before_entry = ra2::BeforeEntry;
@@ -90,9 +90,9 @@ int ra2::RunGame(int argc, char** argv) {
   const char* console = std::getenv("RA2_LOG_CONSOLE");
   if (!console || *console != '1') std::freopen((docs + "/ra2-log.txt").c_str(), "w", stderr);
   std::setvbuf(stderr, nullptr, _IONBF, 0);
-  std::fprintf(stderr, "ra2: starting, game dir %s\n", (env ? env : (docs + "/RA2").c_str()));
   setenv("XDG_DATA_HOME", docs.c_str(), 1);
-  std::string game_dir = env ? env : docs + "/RA2";
+  std::string game_dir = env ? env : ra2::IosGameDir();
+  std::fprintf(stderr, "ra2: starting, game dir %s\n", game_dir.c_str());
 #else
   std::string game_dir = env ? env : RA2_DEFAULT_GAME_DIR;
 #endif
@@ -103,6 +103,11 @@ int ra2::RunGame(int argc, char** argv) {
     const std::string a = argv[i];
     if (a == "--game" && i + 1 < argc) {
       game_dir = argv[++i];
+      continue;
+    }
+    // --language en|zh-Hant|zh-Hans (game_dir.h), as RA2_LANGUAGE.
+    if (a == "--language" && i + 1 < argc) {
+      setenv("RA2_LANGUAGE", argv[++i], 1);
       continue;
     }
     // The screen size the game runs at (resolution.h): by default the
@@ -120,7 +125,8 @@ int ra2::RunGame(int argc, char** argv) {
     std::fprintf(stderr, "ra2: %s not found (pass --game <install dir>)\n", exe.c_str());
 #if TARGET_OS_IOS
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Red Alert 2",
-                             "GAME.EXE not found. Copy your own Red Alert 2 install folder "
+                             "GAME.EXE not found. Install the app with your own Red Alert 2 "
+                             "files (install_device.py --game), or copy your install folder "
                              "into this app's Documents as \"RA2\" (Finder > iPhone > Files), "
                              "then start the app again.",
                              nullptr);

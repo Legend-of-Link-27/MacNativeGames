@@ -10,7 +10,8 @@ CORE-MATH (`74fcd10`, MIT); see `cmake/`.
 What our changes add: MMX instructions (`src/runtime/mmx.h`); DirectDraw v1/v2 interfaces and 16-bit 2D blits, colour
 keys and GetDC; DirectSound v1; OLE structured storage written from the [MS-CFB] specification (`src/runtime/cfb.*`,
 `src/runtime/hle/ole32_storage.cpp`); IMM; ANSI code pages through the system's iconv (`src/runtime/hle/codepage.*`);
-user32 dialogs and controls; the present path, screen controls and touch gestures for iOS; resizable windows; compact
+user32 dialogs and controls; the present path, screen controls and touch gestures for iOS; resizable windows; install files a launcher puts elsewhere
+(`GameConfig::install_files`); compact
 movies (Bink frames re-encoded as VP9 / Opus behind the Bink header, `src/runtime/hle/bink_format.h`,
 `tools/bink_decode`); lifter fixes. Wine, Bochs and
 GPL code were read for behaviour only, never copied.

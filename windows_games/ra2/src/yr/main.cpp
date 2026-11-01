@@ -5,8 +5,8 @@
 //
 // The install dir is the player's own Red Alert 2 install with Yuri's
 // Revenge (the Steam one holds both); it defaults to RA2_GAME_DIR, then to
-// the repository's game/install. On iOS it is the app's Documents/RA2, as
-// for Red Alert 2 (the same folder); the log is Documents/yr-log.txt. gamemd.exe is the process image;
+// the repository's game/install. On iOS it is the one Red Alert 2 uses
+// (ra2::IosGameDir: in the app, or Documents/RA2); the log is Documents/yr-log.txt. gamemd.exe is the process image;
 // Blowfish.dll (the COM server that decrypts MIX headers, the same as Red
 // Alert 2's) is lifted with it. Before the game starts: RA2MD.INI's screen
 // size, no movies and the default game speed (settings.h); battlefield
@@ -73,7 +73,7 @@ recomp::GameConfig Config(const std::string& game_dir) {
       {"Blowfish.dll"},  // CoCreateInstance'd by gamemd.exe (MIX header decryption)
   };
   // English, or Simplified Chinese with RA2MD.CSF (src/ra2/game_dir.h).
-  g.ansi_code_page = ra2::CodePage(game_dir, "RA2MD.CSF");
+  ra2::UseLanguage(g, game_dir, ra2::ChooseLanguage(game_dir, "YR"));
   ra2::AddPlayControls(g);
   g.before_entry = BeforeEntry;
   return g;
@@ -96,7 +96,7 @@ int yr::RunGame(int argc, char** argv) {
   if (!console || *console != '1') std::freopen((docs + "/yr-log.txt").c_str(), "w", stderr);
   std::setvbuf(stderr, nullptr, _IONBF, 0);
   setenv("XDG_DATA_HOME", docs.c_str(), 1);
-  std::string game_dir = env ? env : docs + "/RA2";
+  std::string game_dir = env ? env : ra2::IosGameDir();
   std::fprintf(stderr, "yr: starting, game dir %s\n", game_dir.c_str());
 #else
   std::string game_dir = env ? env : YR_DEFAULT_GAME_DIR;
@@ -106,6 +106,11 @@ int yr::RunGame(int argc, char** argv) {
     const std::string a = argv[i];
     if (a == "--game" && i + 1 < argc) {
       game_dir = argv[++i];
+      continue;
+    }
+    // --language en|zh-Hant|zh-Hans (game_dir.h), as YR_LANGUAGE.
+    if (a == "--language" && i + 1 < argc) {
+      setenv("YR_LANGUAGE", argv[++i], 1);
       continue;
     }
     if (a == "--resolution" && i + 1 < argc) {

@@ -1,25 +1,28 @@
 #!/usr/bin/env python3
 """Sign the iOS build with your own Apple ID and install it on your iPhone.
 
-    python3 -I scripts/ios/install_device.py [--device "<name>"] [--game game/install [--force]]
+    python3 -I scripts/ios/install_device.py [--device "<name>"] [--game game/install]
 
 A free (Personal Team) Apple ID signs for 7 days, a paid membership for a
-year: run this again to renew; the app's Documents (your game files, saves)
-are kept. Xcode needs your Apple ID (Xcode > Settings > Accounts), the
+year: run this again to renew; the app's Documents (saves, settings) are
+kept. Xcode needs your Apple ID (Xcode > Settings > Accounts), the
 iPhone must be paired with this Mac with Developer Mode on, and the first
 time, the developer trusted on the phone (Settings > General > VPN &
 Device Management).
 
 The provisioning profile comes from a throwaway Xcode project with the same
 bundle identifier (xcodebuild -allowProvisioningUpdates registers the device
-and the App ID); the app is then re-signed with it. --game copies your own
-Red Alert 2 install folder into the app's Documents/RA2 (skipping files the
-phone already has at the same size, unless --force; a file the phone has
-under another case of the same name is replaced, not doubled); it is never
-put in the app bundle. The MIX files holding the movies go as compact copies
-(scripts/ios/compact_movies.py, made once on this Mac into
-IOS_BUILD_DIR/movies): about 1.1 GB on the phone instead of 1.9 GB, the
-movies all there; --full-movies copies the original files.
+and the App ID); the app is then re-signed with it. --game puts your own
+Red Alert 2 install into the app (<app>/Game, before signing; not "RA2",
+which a Mac's disk takes for the executable "ra2"), so the app is
+ready to play once installed; it reads its game files there (read-only:
+what the game writes goes to Documents). The MIX files holding the movies
+go in as compact copies (scripts/ios/compact_movies.py, made once on this
+Mac into IOS_BUILD_DIR/movies): about 1.1 GB of game files instead of
+1.9 GB, the movies all there; --full-movies puts in the original files.
+The signed copy is made in IOS_BUILD_DIR/signed (files cloned, so it takes
+no more room on an APFS disk). Without --game the app reads the install
+from its Documents/RA2, where it can be copied with Finder.
 """
 import argparse
 import json
@@ -127,12 +130,16 @@ def profile_plist(path):
     return plistlib.loads(out(['security', 'cms', '-D', '-i', path]).encode())
 
 
-def sign(app_src, bundle_id, profile_path, identity):
-    staging = CACHE / 'staging'
+def sign(app_src, bundle_id, profile_path, identity, game=None, compact=None):
+    # Next to the build (IOS_BUILD_DIR), not in ~/Library: with the game in
+    # it the app is over a gigabyte.
+    staging = app_src.parents[1] / 'signed'
     shutil.rmtree(staging, ignore_errors=True)
     staging.mkdir(parents=True)
     app = staging / app_src.name
     shutil.copytree(app_src, app, symlinks=True)
+    if game:
+        add_game(app, game, compact or {})
     info_path = app / 'Info.plist'
     info = plistlib.loads(info_path.read_bytes())
     info['CFBundleIdentifier'] = bundle_id
@@ -149,47 +156,30 @@ def sign(app_src, bundle_id, profile_path, identity):
     return app, prof['ExpirationDate']
 
 
-def device_files(device_id, bundle_id):
-    """Size of each file the app's Documents/RA2 holds on the phone."""
-    try:
-        r = devicectl_json(['device', 'info', 'files', '--device', device_id,
-                            '--domain-type', 'appDataContainer', '--domain-identifier', bundle_id,
-                            '--subdirectory', 'Documents/RA2'])
-    except subprocess.CalledProcessError:
-        return {}
-    files = r.get('result', {}).get('files', [])
-    # devicectl puts the size under "metadata".
-    return {f.get('relativePath', f.get('name')): f.get('metadata', {}).get('size', f.get('size'))
-            for f in files}
-
-
-def copy_game(device_id, bundle_id, game, force=False, compact=None):
-    """compact: lower-case file name -> the compact copy sent in its place."""
-    compact = compact or {}
-    have = device_files(device_id, bundle_id)
-    # The phone's own spelling of each name: the game looks names up in
-    # any case, so two spellings of one file must not both be there.
-    spelled = {name.lower(): name for name in have}
+def add_game(app, game, compact):
+    """Puts the install's files into app/Game (compact: lower-case file name
+    -> the copy that goes in its place), cloned (cp -c) where the disk can."""
+    dest = app / 'Game'
+    dest.mkdir()
+    total = 0
     for f in sorted(game.iterdir()):
         if not f.is_file() or f.name.lower() in SKIP or f.name.startswith('.'):
             continue
-        dest = spelled.get(f.name.lower(), f.name)
         src = compact.get(f.name.lower(), f)
-        if not force and have.get(dest) == src.stat().st_size:
-            continue
-        print(f'  copying {f.name} ({src.stat().st_size >> 20} MB' +
-              (', compact movies)' if src != f else ')') +
-              (f' as {dest}' if dest != f.name else ''))
-        for attempt in range(3):
-            r = subprocess.run(['xcrun', 'devicectl', 'device', 'copy', 'to', '--device', device_id,
-                                '--domain-type', 'appDataContainer', '--domain-identifier', bundle_id,
-                                '--source', str(src), '--destination', f'Documents/RA2/{dest}'],
-                               capture_output=True, text=True)
-            if r.returncode == 0:
-                break
-            print(f'    retry ({r.stderr.strip().splitlines()[-1] if r.stderr.strip() else "failed"})')
-        else:
-            sys.exit(f'could not copy {f.name} to the phone')
+        # A clone on the same APFS disk, else a copy.
+        if subprocess.run(['cp', '-c', str(src), str(dest / f.name)],
+                          capture_output=True).returncode != 0:
+            shutil.copyfile(src, dest / f.name)
+        total += src.stat().st_size
+    # The languages made by scripts/languages.py (lang/<code>/).
+    lang = next((d for d in game.iterdir() if d.is_dir() and d.name.lower() == 'lang'), None)
+    if lang:
+        if subprocess.run(['cp', '-c', '-R', str(lang), str(dest / 'lang')],
+                          capture_output=True).returncode != 0:
+            shutil.copytree(lang, dest / 'lang', dirs_exist_ok=True)
+        langs = sorted(d.name for d in (dest / 'lang').iterdir() if d.is_dir())
+        print(f'languages: en, {", ".join(langs)}')
+    print(f'game files in the app: {total >> 20} MB' + (' (compact movies)' if compact else ''))
 
 
 def main():
@@ -199,16 +189,15 @@ def main():
     ap.add_argument('--device', help='device name, identifier or UDID (as Finder shows it)')
     ap.add_argument('--team', help='Apple team ID, when the keychain has several')
     ap.add_argument('--bundle-id', default='org.winnativegames.ra2')
-    ap.add_argument('--game', type=Path, help='your Red Alert 2 install folder, copied to Documents/RA2')
-    ap.add_argument('--force', action='store_true',
-                    help='with --game: copy every file, even those the phone has at the same size '
-                         '(after switching to another install of the same files)')
+    ap.add_argument('--game', type=Path, help='your Red Alert 2 install folder, put into the app')
     ap.add_argument('--full-movies', action='store_true',
-                    help='with --game: copy the movie archives as they are (1.9 GB instead of '
-                         '1.1 GB), not their compact copies')
+                    help='with --game: the movie archives as they are (1.9 GB instead of 1.1 GB), '
+                         'not their compact copies')
     a = ap.parse_args()
     if not a.app.is_dir():
         sys.exit(f'{a.app} not found: build it with scripts/ios/build_app.sh')
+    if a.game and not any(f.name.lower() == 'game.exe' for f in a.game.iterdir()):
+        sys.exit(f'{a.game}: no GAME.EXE, not a Red Alert 2 install')
     ts = [a.team] if a.team else teams()
     if len(ts) != 1:
         sys.exit('choose the team with --team: ' + (', '.join(ts) if ts else
@@ -221,16 +210,14 @@ def main():
     suffix = '.' + team.lower()
     bundle_id = a.bundle_id if a.bundle_id.endswith(suffix) else a.bundle_id + suffix
     print(f'team {team}, device {dev["deviceProperties"].get("name")}, bundle {bundle_id}')
+    compact = {}
+    if a.game and not a.full_movies:
+        print('compact movies (the first time takes a while):')
+        compact = compact_movies.compact_install(a.game, a.app.parents[1] / 'movies')
     profile_path, throwaway = make_profile(team, bundle_id, udid)
-    app, expires = sign(a.app, bundle_id, profile_path, signing_identity(throwaway))
+    app, expires = sign(a.app, bundle_id, profile_path, signing_identity(throwaway), a.game, compact)
     print(f'signed; valid until {expires:%Y-%m-%d %H:%M} (run again to renew)')
     run(['xcrun', 'devicectl', 'device', 'install', 'app', '--device', dev_id, app])
-    if a.game:
-        compact = {}
-        if not a.full_movies:
-            print('compact movies (the first time takes a while):')
-            compact = compact_movies.compact_install(a.game, a.app.parents[1] / 'movies')
-        copy_game(dev_id, bundle_id, a.game, a.force, compact)
     print('installed. First time: Settings > General > VPN & Device Management > trust the developer.')
 
 

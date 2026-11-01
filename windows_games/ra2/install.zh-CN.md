@@ -64,21 +64,28 @@ SYMBOLS_DIR=game/symbols scripts/build.sh
 ```sh
 scripts/build.sh                   # 先在 Mac 上生成重编译的代码
 scripts/ios/build_app.sh           # 一个 App，启动时问玩哪个游戏（第一次会先为 iOS 编 SDL3、glslang、SPIRV-Cross 和只带解码器的 ffmpeg）
-python3 -I scripts/ios/install_device.py [--game game/install]   # 用你自己的团队签名，数据线安装
+python3 -I scripts/ios/install_device.py --game game/install   # 用你自己的团队签名，数据线安装
 ```
 
-App 从自己的“文稿”读游戏：把安装目录拷进去并命名为 `RA2`（访达 › iPhone › 文件），或给 `install_device.py` 传 `--game`。
-用 `--game` 时，装着动画的 MIX 文件先在 Mac 上做一份紧凑版再拷过去（`scripts/ios/compact_movies.py`，需要
-`brew install ffmpeg`，第一次约 10 分钟）：每段动画的画面从 Bink 重新编码成 VP9 和 Opus，手机上约 1.1 GB，原来是 1.9 GB；
-`--full-movies` 拷原文件。
+`--game` 在签名前把你自己的游戏文件放进 App，装好就能玩（约 1.3 GB，数据线不到一分钟）。App 里的游戏文件只读，存档和设置写在
+App 的“文稿”里，重装不丢。装着动画的 MIX 文件放的是在 Mac 上做一次的紧凑版（`scripts/ios/compact_movies.py`，需要
+`brew install ffmpeg`，第一次约 10 分钟）：每段动画的画面从 Bink 重新编码成 VP9 和 Opus，游戏文件约 1.1 GB，原来是 1.9 GB；
+`--full-movies` 放原文件。不带 `--game` 装的 App 从“文稿”读游戏：把安装目录拷进去并命名为 `RA2`（访达 › iPhone › 文件）。
 对局中会出现触控控件（摇杆、编队按钮、强制攻击、取消）。App 图标由 `scripts/ios/make_icon.py` 画出（原创图形，不含游戏素材或
 发行商标志）。
 
-## 中文
+## 语言
 
-`python3 -I scripts/make_zh_hans.py <中文 LANGUAGE.MIX> game/install [<尤里的复仇自身字串的译文>]` 把你自己那份繁体中文版的
-字符串表转成简体（OpenCC，`brew install opencc`），从系统字体补上游戏字体里缺的字形，一起写进游戏目录，游戏会优先读它们。
-它需要的 MIX 公钥从你自己的 `game.exe` 里读（`scripts/mixls.py`）。
+English、繁體中文（Steam 版官方繁体）和简体中文（从官方繁体转换）。中文来自 Steam 的语言包（depot 2229855；用 steamcmd 登录你自己的
+账号：`steamcmd +@sSteamCmdForcePlatformType windows +login <你的账号> +download_depot 2229850 2229855 +quit`）：
+
+```sh
+python3 -I scripts/languages.py game/install <语言包目录>
+```
+
+写出 `game/install/lang/zh-Hant`（官方字符串表原样）和 `lang/zh-Hans`（用 OpenCC 转成简体，`brew install opencc`；游戏字体补上
+Big5 没有的字形，从思源黑体 / Noto Sans CJK SC 画，SIL OFL 1.1 许可，按固定版本下载并核对）。游戏默认跟系统语言；Mac 上用 `--language en|zh-Hant|zh-Hans`（或 `RA2_LANGUAGE` / `YR_LANGUAGE`）
+选，iPhone / iPad 上在第一个对话框里点语言按钮（下次启动记住）。MIX 公钥从你自己的 `game.exe` 里读（`scripts/mixls.py`）。
 
 ## 测试
 
