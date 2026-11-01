@@ -14,6 +14,7 @@ Code in this repository that comes from other projects keeps its license; the li
 | in `games/totk/runtime/threads.c`: SignalToAddress that wakes all waiters subtracts 2, SystemEvent bindings that end with their write handle, signals that wake only the waiters of the signalled object (checked by `games/totk/tests/system_event_bind`) | [nxnative](https://github.com/seedds/nxnative) commits `d47f899`, `49ee623`, `df7badd`, rewritten for this runtime (via PR #159) | MIT | `games/totk/third_party/licenses/nxnative.txt` |
 | spin-wait search and copy in `games/totk/third_party/d2r/patch_nso.py` ("Spin waits") and its test `tests/test_spin_waits.py` | [nxnative](https://github.com/seedds/nxnative) commits `066f2af`, `6d34984`, adapted to this rewriter | MIT | `games/totk/third_party/licenses/nxnative.txt` |
 | audio effects in `games/totk/runtime/audio_reverb.c`, `games/totk/runtime/audio_effects.c` (delay, reverb, compressor) and the mixer | ported from Ryujinx.Audio | MIT | `games/totk/third_party/licenses/Ryujinx-Audio.txt` |
+| `windows_games/ra2/third_party/x86recomp` (x86 to arm64 recompiler and Win32 runtime) | [x86recomp](https://github.com/JTM-rootstorm/x86recomp) at `1c90fe3`, with WinNativeGames' changes (`UPSTREAM.md` lists them) | MIT | `windows_games/ra2/third_party/x86recomp/LICENSE` |
 
 Fetched or linked at build time (not in this repository):
 
@@ -23,3 +24,6 @@ Fetched or linked at build time (not in this repository):
 | [hactool](https://github.com/SciresM/hactool) at `1d64a83` (with explicit private title-key-file hook), including its bundled mbedTLS | Base + update BKTR merge at build time only | ISC (hactool), Apache-2.0 (mbedTLS); see fetched source LICENSE files |
 | libopus (Homebrew), linked statically | Opus audio | BSD-3-Clause |
 | libvpx (Homebrew), linked statically | VP9 movies | BSD-3-Clause |
+| [Berkeley SoftFloat 3](https://github.com/ucb-bar/berkeley-softfloat-3) at `5c06db3`, fetched by `windows_games/ra2/third_party/x86recomp/cmake/softfloat.cmake` | exact x87 arithmetic in windows_games | BSD-3-Clause |
+| [CORE-MATH](https://gitlab.inria.fr/core-math/core-math) at `74fcd10`, fetched by `windows_games/ra2/third_party/x86recomp/cmake/coremath.cmake` | correctly rounded math functions in windows_games | MIT |
+| SDL3 3.4.14, glslang, SPIRV-Cross, ffmpeg 8.1 (decoders only), built by `windows_games/ra2/scripts/ios/build_deps.sh` | windows_games on iOS | zlib, BSD-3-Clause / Apache-2.0, Apache-2.0, LGPL-2.1 |

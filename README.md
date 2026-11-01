@@ -48,6 +48,17 @@ How it works: bring your game file (XCI or NSP) and your `prod.keys`; one script
 
 Community ports keep their own runtime, graphics layer and scripts in their folder and are built with the steps there.
 
+### Windows games
+
+[`windows_games`](windows_games) holds Windows PC games, one folder each. They are x86 programs, so their code is not run
+as it is: [x86recomp](https://github.com/JTM-rootstorm/x86recomp) statically recompiles every instruction of your own
+executable into arm64, its runtime answers the Win32 calls, and DirectDraw is drawn on Metal. As with the Switch games,
+you bring your own copy and nothing from the game is in the repository.
+
+| Game | Version | Platform | Status | Folder |
+|---|---|---|---|---|
+| Command & Conquer: Red Alert 2 and Yuri's Revenge | 1.006 and 1.001 (Steam release) | Mac, iPhone, iPad | Community port; a skirmish match plays, saves work on the Mac | [`windows_games/ra2`](windows_games/ra2/install.md) |
+
 > **Recommended: let an AI assistant install and test it for you.** Open this repository in Claude Code, Codex, or any other AI assistant you like, tell it where your own game file and `prod.keys` are, and ask it to build and install the app and to sort out whatever comes up on your Mac. It follows the [install skill](.claude/skills/install-zelda/SKILL.md), runs every step and checks the result; you just wait with a coffee. Installing and testing by hand is not recommended: there are many steps, and every Mac, game version and dump is a little different. That's why I haven't provided a one-click build option: an AI assistant is my one-click build option.
 >
 > **The install skill** ([`.claude/skills/install-zelda/SKILL.md`](.claude/skills/install-zelda/SKILL.md)) is a short guide written for the assistant: which of your files goes where, the command for your case, how long each step takes (a build is 20–40 minutes; it must not be stopped), and the fix for each common error. Claude Code finds it by itself (or type `/install-zelda`). With any other assistant, start with: *"Read .claude/skills/install-zelda/SKILL.md and follow it to install Tears of the Kingdom for me."*
@@ -86,10 +97,13 @@ Measuring by game state with the Metal performance tools of macOS 27 (`TOTK_STAT
 ## Acknowledgements
 
 - **[d2r-mobile](https://github.com/jhaizhou-ops/d2r-mobile)** (MIT) developed this way of running Switch games natively (for Diablo II: Resurrected): the NSO rewriter, the Horizon host and the NVN-on-Metal layer here started as its generic parts.
-- **[nxnative](https://github.com/seedds/nxnative)**: the one-script packaging and NSP common-ticket import follow its approach.
-- **Ryujinx** (MIT): its shader translator (`vendor/ryujinx`) turns the game's Maxwell shaders into SPIR-V, and its system-service code is a reference. With this project's patches and service it is compiled ahead of time (.NET NativeAOT) into `games/totk/prebuilt/macos-arm64/totk_xlate`; `games/totk/tools/totk_xlate/publish_native.sh` rebuilds it (needs the .NET 10 SDK, only for developers).
+- **[nxnative](https://github.com/seedds/nxnative)** (MIT): the one-script packaging and NSP common-ticket import follow its approach, and code of it is adapted here: the SignalToAddress, SystemEvent and signal-wake rules in `games/totk/runtime/threads.c` (via PR #159) and the spin-wait search in `games/totk/third_party/d2r/patch_nso.py`.
+- **Ryujinx** (MIT): its shader translator (`vendor/ryujinx`) turns the game's Maxwell shaders into SPIR-V, and its system-service code is a reference. With this project's patches and service it is compiled ahead of time (.NET NativeAOT, which builds in .NET's runtime libraries, MIT) into `games/totk/prebuilt/macos-arm64/totk_xlate`; `games/totk/tools/totk_xlate/publish_native.sh` rebuilds it (needs the .NET 10 SDK, only for developers). The audio effects (delay, reverb, compressor) and the mixer in `games/totk/runtime` are ported from Ryujinx.Audio.
 - **[SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross)** (Apache-2.0) turns SPIR-V into Metal Shading Language; it is fetched at a pinned commit and compiled with clang during the build.
-- **deko3d** (zlib): texture layout sizes. **bcdec**: BC texture decoding. **libopus** and **libvpx** (BSD) from Homebrew: audio and the pre-rendered movies.
+- **[hactool](https://github.com/SciresM/hactool)** (ISC, with its bundled mbedTLS, Apache-2.0): merges the base game and its update at build time; fetched at a pinned commit.
+- **deko3d** (zlib): texture layout sizes. **[bcdec](https://github.com/iOrange/bcdec)** (MIT or public domain): BC texture decoding. **libopus** and **libvpx** (BSD) from Homebrew: audio and the pre-rendered movies.
+- **[x86recomp](https://github.com/JTM-rootstorm/x86recomp)** (MIT) is the recompiler and Win32 runtime of the Windows games (`windows_games/ra2/third_party/x86recomp`, with our changes); it builds on **Berkeley SoftFloat 3** (BSD-3-Clause) and **CORE-MATH** (MIT), and on iOS on **SDL3** (zlib), **glslang**, **SPIRV-Cross** and a decoders-only **ffmpeg** (LGPL).
+- Community ports that carry code from elsewhere list it in their own folder (`third_party/COPIES.md`). The main project's and the Windows games' copied code, with each license, is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## License
 
@@ -142,6 +156,16 @@ Apple、Mac、iPhone、iPad、Apple Vision Pro 和 Metal 是 Apple Inc. 的商�
 
 社区移植的游戏各自在自己的目录里带一份运行时、图形层和脚本，按那里的步骤构建。
 
+### Windows 游戏
+
+[`windows_games`](windows_games) 放 Windows 电脑游戏，一个游戏一个目录。它们是 x86 程序，代码不能直接运行：
+[x86recomp](https://github.com/JTM-rootstorm/x86recomp) 把你自己的可执行文件的每条指令静态重编译成 arm64，它的运行时接管 Win32
+调用，DirectDraw 画到 Metal。和 Switch 游戏一样，游戏由你自己提供，仓库里没有任何游戏内容。
+
+| 游戏 | 版本 | 平台 | 状态 | 目录 |
+|---|---|---|---|---|
+| 命令与征服：红色警戒 2 及尤里的复仇 | 1.006 和 1.001（Steam 版） | Mac、iPhone、iPad | 社区移植；能打遭遇战，Mac 上能存读档 | [`windows_games/ra2`](windows_games/ra2/install.zh-CN.md) |
+
 > **推荐的安装测试方式：交给 AI 助理。** 用 Claude Code、Codex 或其他你喜欢的 AI 助理打开这个仓库，告诉它你自己的游戏文件和 `prod.keys` 在哪，让它帮你打包、安装 App，遇到这台 Mac 上的问题也让它处理。它会按[安装 skill](.claude/skills/install-zelda/SKILL.md) 一步步跑完并检查结果，你只需要喝杯咖啡等着。不推荐自己手动安装测试：步骤多，每台 Mac、每个游戏版本、每份导出的游戏文件都有些差别。这也是我没有提供一键打包的原因：AI 助理就是我的一键打包。
 >
 > **安装 skill**（[`.claude/skills/install-zelda/SKILL.md`](.claude/skills/install-zelda/SKILL.md)）是写给 AI 助理的简短指南：你的哪个文件放在哪个参数、你这种情况用哪条命令、每一步要多久（一次打包 20–40 分钟，中途不能停），以及常见报错各怎么解决。Claude Code 会自己找到它（也可以输入 `/install-zelda`）。用其他 AI 助理时，第一句这样说：*“读 .claude/skills/install-zelda/SKILL.md，按它帮我安装王国之泪。”*
@@ -180,10 +204,13 @@ Apple、Mac、iPhone、iPad、Apple Vision Pro 和 Metal 是 Apple Inc. 的商�
 ## 致谢
 
 - **[d2r-mobile](https://github.com/jhaizhou-ops/d2r-mobile)**（MIT）为《暗黑破坏神 II：狱火重生》开发了这套原生运行 Switch 游戏的方法：这里的 NSO 改写器、Horizon 宿主和 Metal 上的 NVN 层都从它的通用部分起步。
-- **[nxnative](https://github.com/seedds/nxnative)**：“用户自己的游戏文件 + 一个脚本出包”和 NSP 通用票据读取的做法借鉴自它；本项目只构建 Mac App。
-- **Ryujinx**（MIT）：它的着色器翻译器（`vendor/ryujinx`）把游戏的 Maxwell 着色器转成 SPIR-V，它的系统服务代码也是参考。加上本项目的补丁和着色器服务，用 .NET NativeAOT 预先编成原生程序 `games/totk/prebuilt/macos-arm64/totk_xlate`；改了翻译器用 `games/totk/tools/totk_xlate/publish_native.sh` 重编（要 .NET 10 SDK，只有开发者需要）。
+- **[nxnative](https://github.com/seedds/nxnative)**（MIT）：“用户自己的游戏文件 + 一个脚本出包”和 NSP 通用票据读取的做法借鉴自它；也移植了它的代码：`games/totk/runtime/threads.c` 里 SignalToAddress、SystemEvent 和按对象唤醒的规则（经 PR #159），以及 `games/totk/third_party/d2r/patch_nso.py` 的自旋等待查找。
+- **Ryujinx**（MIT）：它的着色器翻译器（`vendor/ryujinx`）把游戏的 Maxwell 着色器转成 SPIR-V，它的系统服务代码也是参考。加上本项目的补丁和着色器服务，用 .NET NativeAOT 预先编成原生程序 `games/totk/prebuilt/macos-arm64/totk_xlate`（其中编入了 .NET 的运行库，MIT）；改了翻译器用 `games/totk/tools/totk_xlate/publish_native.sh` 重编（要 .NET 10 SDK，只有开发者需要）。`games/totk/runtime` 里的音效（延迟、混响、压缩器）和混音器移植自 Ryujinx.Audio。
 - **[SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross)**（Apache-2.0）把 SPIR-V 转成 Metal 着色语言；打包时按固定提交取得，用 clang 编。
-- **deko3d**（zlib）：贴图布局尺寸。**bcdec**：BC 贴图解码。**libopus**、**libvpx**（BSD，来自 Homebrew）：音频和预渲染影片。
+- **[hactool](https://github.com/SciresM/hactool)**（ISC，自带的 mbedTLS 是 Apache-2.0）：打包时合并本体和更新包；按固定提交取得。
+- **deko3d**（zlib）：贴图布局尺寸。**[bcdec](https://github.com/iOrange/bcdec)**（MIT 或公有领域）：BC 贴图解码。**libopus**、**libvpx**（BSD，来自 Homebrew）：音频和预渲染影片。
+- **[x86recomp](https://github.com/JTM-rootstorm/x86recomp)**（MIT）是 Windows 游戏的重编译器和 Win32 运行时（`windows_games/ra2/third_party/x86recomp`，含我们的改动）；它用到 **Berkeley SoftFloat 3**（BSD-3-Clause）和 **CORE-MATH**（MIT），iOS 上还用到 **SDL3**（zlib）、**glslang**、**SPIRV-Cross** 和只带解码器的 **ffmpeg**（LGPL）。
+- 带了别处代码的社区移植，在各自目录的 `third_party/COPIES.md` 里列出。主项目和 Windows 游戏拷进来的代码及各自的许可，列在 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ## 许可证
 
