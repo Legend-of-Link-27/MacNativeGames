@@ -50,17 +50,20 @@ Community ports keep their own runtime, graphics layer and scripts in their fold
 
 ### Windows games
 
-[`windows_games`](windows_games) holds Windows PC games, one folder each. They are x86 programs, so their code is not run
-as it is: [x86recomp](https://github.com/JTM-rootstorm/x86recomp) statically recompiles every instruction of your own
-executable into arm64, its runtime answers the Win32 calls, and DirectDraw is drawn on Metal. As with the Switch games,
-you bring your own copy and nothing from the game is in the repository.
+[`windows_games`](windows_games) holds Windows PC games, one folder each. They are statically recompiled into arm64,
+and their runtime draws with Metal. As with the Switch games, you bring your own copy and nothing from the game is in the
+repository.
 
 | Game | Version | Platform | Status | Folder |
 |---|---|---|---|---|
 | Command & Conquer: Red Alert 2 and Yuri's Revenge | 1.006 and 1.001 (Steam release) | Mac, iPhone, iPad | Community port; a skirmish match plays, saves work on the Mac | [`windows_games/ra2`](windows_games/ra2/install.md) |
 
-> **Recommended: let an AI assistant install and test it for you.** Open this repository in Claude Code, Codex, or any other AI assistant you like, tell it where your own game file and `prod.keys` are, and ask it to build and install the app and to sort out whatever comes up on your Mac. It follows the [install skill](.claude/skills/install-zelda/SKILL.md), runs every step and checks the result; you just wait with a coffee. Installing and testing by hand is not recommended: there are many steps, and every Mac, game version and dump is a little different. That's why I haven't provided a one-click build option: an AI assistant is my one-click build option.
+### Recommended install
+
+> **Hand it to an AI assistant.** Open this repository in Claude Code, Codex, or any other AI assistant you like, tell it where your own game file and `prod.keys` are, and ask it to build and install the app and to sort out whatever comes up on your Mac. It follows the [install skill](.claude/skills/install-zelda/SKILL.md), runs every step and checks the result; you just wait with a coffee. Installing and testing by hand is not recommended: there are many steps, and every Mac, game version and dump is a little different. That's why I haven't provided a one-click build option: an AI assistant is my one-click build option.
 >
+
+### Install skill
 > **The install skill** ([`.claude/skills/install-zelda/SKILL.md`](.claude/skills/install-zelda/SKILL.md)) is a short guide written for the assistant: which of your files goes where, the command for your case, how long each step takes (a build is 20–40 minutes; it must not be stopped), and the fix for each common error. Claude Code finds it by itself (or type `/install-zelda`). With any other assistant, start with: *"Read .claude/skills/install-zelda/SKILL.md and follow it to install Tears of the Kingdom for me."*
 
 ## Let's maintain the shader list together: no more stutter
@@ -158,16 +161,19 @@ Apple、Mac、iPhone、iPad、Apple Vision Pro 和 Metal 是 Apple Inc. 的商�
 
 ### Windows 游戏
 
-[`windows_games`](windows_games) 放 Windows 电脑游戏，一个游戏一个目录。它们是 x86 程序，代码不能直接运行：
-[x86recomp](https://github.com/JTM-rootstorm/x86recomp) 把你自己的可执行文件的每条指令静态重编译成 arm64，它的运行时接管 Win32
-调用，DirectDraw 画到 Metal。和 Switch 游戏一样，游戏由你自己提供，仓库里没有任何游戏内容。
+[`windows_games`](windows_games) 放 Windows 电脑游戏，一个游戏一个目录。静态重编译成 arm64，它的运行时调用 Metal。和 Switch
+游戏一样，游戏由你自己提供，仓库里没有任何游戏内容。
 
 | 游戏 | 版本 | 平台 | 状态 | 目录 |
 |---|---|---|---|---|
 | 命令与征服：红色警戒 2 及尤里的复仇 | 1.006 和 1.001（Steam 版） | Mac、iPhone、iPad | 社区移植；能打遭遇战，Mac 上能存读档 | [`windows_games/ra2`](windows_games/ra2/install.zh-CN.md) |
 
-> **推荐的安装测试方式：交给 AI 助理。** 用 Claude Code、Codex 或其他你喜欢的 AI 助理打开这个仓库，告诉它你自己的游戏文件和 `prod.keys` 在哪，让它帮你打包、安装 App，遇到这台 Mac 上的问题也让它处理。它会按[安装 skill](.claude/skills/install-zelda/SKILL.md) 一步步跑完并检查结果，你只需要喝杯咖啡等着。不推荐自己手动安装测试：步骤多，每台 Mac、每个游戏版本、每份导出的游戏文件都有些差别。这也是我没有提供一键打包的原因：AI 助理就是我的一键打包。
+### 推荐的安装
+
+> **交给 AI 助理。** 用 Claude Code、Codex 或其他你喜欢的 AI 助理打开这个仓库，告诉它你自己的游戏文件和 `prod.keys` 在哪，让它帮你打包、安装 App，遇到这台 Mac 上的问题也让它处理。它会按[安装 skill](.claude/skills/install-zelda/SKILL.md) 一步步跑完并检查结果，你只需要喝杯咖啡等着。不推荐自己手动安装测试：步骤多，每台 Mac、每个游戏版本、每份导出的游戏文件都有些差别。这也是我没有提供一键打包的原因：AI 助理就是我的一键打包。
 >
+
+### 安装 skill
 > **安装 skill**（[`.claude/skills/install-zelda/SKILL.md`](.claude/skills/install-zelda/SKILL.md)）是写给 AI 助理的简短指南：你的哪个文件放在哪个参数、你这种情况用哪条命令、每一步要多久（一次打包 20–40 分钟，中途不能停），以及常见报错各怎么解决。Claude Code 会自己找到它（也可以输入 `/install-zelda`）。用其他 AI 助理时，第一句这样说：*“读 .claude/skills/install-zelda/SKILL.md，按它帮我安装王国之泪。”*
 
 ## 让我们一起维护着色器清单：游戏不再卡顿
