@@ -49,6 +49,7 @@ void runtime_shared_setting_save(const char *n,const char *s,const char *w){(voi
 /* runtime/account.c's local users (the panel's User page): the empty store of a fresh profile. */
 int runtime_users_get(RuntimeUser *out,int max){(void)out;(void)max;return 0;}
 int runtime_users_active(RuntimeUser *out){if(out)*out=(RuntimeUser){0};return 0;}
+int runtime_users_next(RuntimeUser *out){if(out)*out=(RuntimeUser){0};return 0;}
 int runtime_users_add(const char *name){(void)name;return -1;}
 int runtime_users_choose(int index){(void)index;return -1;}
 #ifndef FRONTEND_REAL_GAMEPAD
