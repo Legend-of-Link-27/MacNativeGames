@@ -8,6 +8,7 @@
 #include <string.h>
 #include <strings.h>
 #include <stdatomic.h>
+#include <unistd.h>
 #include <math.h>
 
 /* 60 FPS.
@@ -266,21 +267,44 @@ static const GamePatch render_res_sites[3] = {
     {GAME_ADDR(0xc630c8), 0x5e21d921, 0xbd0cc660, "scvtf s1, s9 -> str s0, [x19, #0xcc4]"},
 };
 static int render_canvas;   /* auto: the scene follows the canvas (Mac) */
+/* The HeapDef overlay for this canvas (and scene, scene: "<canvas>-scene-<canvas>") that runtime/romfs.c mounts. */
+__attribute__((unused)) static int overlay_present(unsigned w, unsigned h, int scene) {
+    const char *dir = getenv("TOTK_ROMFS_PATCHES_OUT"); char path[4096];
+    if (scene) snprintf(path, sizeof path, "%s/%ux%u-scene-%ux%u/manifest.tsv", dir ? dir : "extracted/" TOTK_GAME_DIR "/romfs-patches-out", w, h, w, h);
+    else snprintf(path, sizeof path, "%s/%ux%u/manifest.tsv", dir ? dir : "extracted/" TOTK_GAME_DIR "/romfs-patches-out", w, h);
+    return access(path, R_OK) == 0;
+}
+/* The scene follows the canvas (after PR #1467) only where it was made for: 1.2.1 on the Mac, TOTK_RENDER_RES unset,
+   and an app that carries the scene overlays (build_app.py makes them for 1.2.1 and 1.4.3). 1.0.0 and 1.1.2 share this
+   file but get none, and an app from before (only update_runtime.py since) has none: both keep the game's own 1600x900
+   scene and the plain overlays, as before, instead of stopping at a missing overlay (runtime/romfs.c). */
+static int scene_follows_canvas(void) {
+#if TARGET_OS_OSX && defined(TOTK_GAME_V121)
+    static int decided, on;
+    if (!decided) {
+        const char *e = getenv("TOTK_RENDER_RES");
+        on = !getenv("TOTK_EXPORT_IOS") && (!e || !*e) && overlay_present(1920, 1080, 1);
+        if (!on && !getenv("TOTK_EXPORT_IOS") && (!e || !*e))
+            fprintf(stderr, "[totk] scene at the game's own 1600x900: this app has no scene overlays (build it again with build_app.py for the scene at the canvas size)\n");
+        decided = 1;
+    }
+    return on;
+#else
+    return 0;
+#endif
+}
 static uint8_t *render_page;   /* the data page, so the scene size can follow the canvas (output_size_set) */
 static int output_full_at_start = 1;   /* TOTK_OUTPUT_RES explicit: the game starts at the full canvas, else at 1080p */
 static int render_res(unsigned *w, unsigned *h) {
     const char *e = getenv("TOTK_RENDER_RES");
     if (e && !strcmp(e, "0")) return 0;
     if (!e || !*e) {
-#if TARGET_OS_OSX
+        if (!scene_follows_canvas()) return 0;
         render_canvas = 1;
         unsigned ow = 1920, oh = 1080;   /* the largest canvas: the scene it must hold, for the heaps */
         runtime_output_res(&ow, &oh);
         *w = ow; *h = oh;
         return 1;
-#else
-        return 0;
-#endif
     }
     if (sscanf(e, "%ux%u", w, h) != 2 || *w < 64 || *h < 64 || *w > 4096 || *h > 4096) runtime_fail("TOTK_RENDER_RES must be <width>x<height>");
     return 1;
@@ -355,18 +379,16 @@ static int output_res_auto(unsigned *w, unsigned *h) {
     /* The largest canvas whose heap overlay the app carries, as <canvas>-scene-<canvas>: the scene follows the canvas
        (patch_render_res), and that overlay is what runtime/romfs.c mounts for it. The plain <canvas> overlays stay for
        TOTK_RENDER_RES=0. */
-    const char *dir = getenv("TOTK_ROMFS_PATCHES_OUT"); char path[4096];
+    /* with the scene at the canvas (scene_follows_canvas) the canvas's <canvas>-scene-<canvas> overlay, else its plain one */
+    int scene = scene_follows_canvas();
     static const unsigned sizes[][2] = {{3840, 2160}, {2560, 1440}};
     for (unsigned i = 0; i < sizeof sizes / sizeof *sizes; i++) {
-        snprintf(path, sizeof path, "%s/%ux%u-scene-%ux%u/manifest.tsv", dir ? dir : "extracted/" TOTK_GAME_DIR "/romfs-patches-out", sizes[i][0], sizes[i][1], sizes[i][0], sizes[i][1]);
-        FILE *f = fopen(path, "r");
-        if (!f) continue;
-        fclose(f);
+        if (!overlay_present(sizes[i][0], sizes[i][1], scene)) continue;
         *w = sizes[i][0]; *h = sizes[i][1]; output_full_at_start = 0;
         fprintf(stderr, "[totk] bigger output (TOTK_OUTPUT_RES=auto): a %ux%u swapchain, starts at 1920x1080 (the default); the settings panel switches\n", *w, *h);
         return 1;
     }
-    fprintf(stderr, "[totk] bigger output (TOTK_OUTPUT_RES=auto): off, %s is missing (make romfs-patches)\n", path);
+    fprintf(stderr, "[totk] bigger output (TOTK_OUTPUT_RES=auto): off, no %s overlay for 2560x1440 (make romfs-patches)\n", scene ? "scene" : "output");
     return 0;
 #else
     (void)w; (void)h; return 0;
