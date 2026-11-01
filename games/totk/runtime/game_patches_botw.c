@@ -531,10 +531,29 @@ static unsigned excl_acquire(uint8_t *code, size_t n, int write) {   /* write 0:
    to +0x1210 / +0x1214 and crop 1920x1080; handheld stores 1280.0 / 1280.0 and is left as shipped):
    main+0x12660c8 movk x8, #0x44c8, lsl #48 -> movk x8, #0x44f0, lsl #48. */
 #ifdef GAME_BOTW160
-enum { RENDER_MOVK = 0x1821674 };
+enum { RENDER_MOVZ = 0x1821670, RENDER_MOVK = 0x1821674 };
 #else
-enum { RENDER_MOVK = 0x12660c8 };
+enum { RENDER_MOVZ = 0x12660bc, RENDER_MOVK = 0x12660c8 };
 #endif
+/* iOS (2026-11-01, user: "增加 原始模式 1600×900 → 1920×1080，保留 高清 1080p"; the iPad starts docked, the iPhone
+   handheld): the code is patched at build time, so the docked pair comes from the data page after main (+16, the slot
+   the Mac's output size uses; the phone has no output size): mov x8 / movk x8 become adrp x8, <data page> / ldr x8,
+   [x8, #16], as patch_output_res does, and the start writes {1920.0, render width} there. TOTK_BOTW_SCENE (the Settings
+   pane's docked scene, ios/tools/build_ipa.py botw_pane) 1920x1080: HD, the scene at the canvas size; otherwise the
+   Switch's own 1600x900 scene, which the game upscales into the 1920x1080 canvas. Handheld play does not read the pair. */
+static uint64_t output_floats(unsigned screen, unsigned render);   /* {screen, render width} as two floats */
+static int phone_scene_hd(void) { const char *e = getenv("TOTK_BOTW_SCENE"); return e && !strcmp(e, "1920x1080"); }
+static void patch_render_phone(Module *m) {
+    uint64_t data_off = (m->file_size + 0x3fff) & ~0x3fffULL;
+    if (data_off + 0x4000 != m->size) runtime_fail("the docked scene size: no data page after the main module");
+    const uint64_t page = (uintptr_t)m->base + data_off;
+    put_word(m, RENDER_MOVZ, adrp_reg(8, (uintptr_t)m->base + RENDER_MOVZ, page), "docked render size");   /* adrp x8, page */
+    put_word(m, RENDER_MOVK, 0xf9400908u, "docked render size");   /* ldr x8, [x8, #16]: {screen, render width} */
+    const unsigned render = phone_scene_hd() ? 1920 : 1600;
+    atomic_store((_Atomic uint64_t *)(void *)(page + 16), output_floats(1920, render));
+    fprintf(stderr, "[botw] docked render size %ux%u into the 1920x1080 canvas (%s; TOTK_BOTW_SCENE)\n", render, render * 9 / 16,
+            render == 1920 ? "HD" : "as on the Switch");
+}
 static void patch_render_1080(Module *m) {
     const char *e = getenv("TOTK_RENDER_RES");
     if (!ios_code() && e && !strcmp(e, "900")) { fprintf(stderr, "[botw] docked render size 1600x900, as shipped (TOTK_RENDER_RES=900)\n"); return; }
@@ -553,6 +572,7 @@ static void patch_render_1080(Module *m) {
             runtime_fail("1080p render size requires the " TOTK_GAME_VERSION " display-mode instructions");
         }
     }
+    if (ios_code()) { patch_render_phone(m); return; }
     const uint32_t movk = 0xf2e89e08u;   /* movk x8, #0x44f0, lsl #48 */
     put_word(m, RENDER_MOVK, movk, "docked render size");
     fprintf(stderr, "[botw] docked render size 1920x1080 (shipped: 1600x900; TOTK_RENDER_RES=900 keeps it)\n");

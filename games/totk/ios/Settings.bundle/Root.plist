@@ -60,7 +60,7 @@
 			<key>Title</key>
 			<string>畫面 · Display</string>
 			<key>FooterText</key>
-			<string>開啟：遊戲的底座設定，輸出 1920×1080、內部 1600×900，需要較快的 iPad。關閉：手持 1280×720（內部 960×540）。重新啟動遊戲後生效 · on: the game's docked settings, 1920×1080 output, 1600×900 inside (for a fast iPad). Off: handheld 1280×720 (960×540 inside). Takes effect after relaunching the game</string>
+			<string>開啟：遊戲的底座設定，輸出 1920×1080、內部 1600×900（和 Switch 底座一樣），iPad 預設開啟。關閉：手持 1280×720（內部 960×540），iPhone 預設。重新啟動遊戲後生效 · on: the game's docked settings, 1920×1080 output, 1600×900 inside (as the Switch docked), the iPad's default. Off: handheld 1280×720 (960×540 inside), the iPhone's default. Takes effect after relaunching the game</string>
 		</dict>
 		<dict>
 			<key>Type</key>
@@ -73,6 +73,8 @@
 			<string>Full HD（底座模式）· Full HD (docked)</string>
 			<key>DefaultValue</key>
 			<false/>
+			<key>DefaultValuePad</key>
+			<true/>
 		</dict>
 		<dict>
 			<key>Type</key>
