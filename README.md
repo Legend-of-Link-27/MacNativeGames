@@ -56,15 +56,17 @@ repository.
 
 | Game | Version | Platform | Status | Folder |
 |---|---|---|---|---|
-| Command & Conquer: Red Alert 2 and Yuri's Revenge | 1.006 and 1.001 (Steam release) | Mac, iPhone, iPad | Community port; a skirmish match plays, saves work on the Mac | [`windows_games/ra2`](windows_games/ra2/install.md) |
+| Command & Conquer: Red Alert 2 and Yuri's Revenge | 1.006 and 1.001 (Steam release) | Mac, iPhone, iPad | Community port; a skirmish match plays on the Mac and iPhone 14, saves work on the Mac; English, 繁體中文, 简体中文 | [`windows_games/ra2`](windows_games/ra2/install.md) |
 
 ### Recommended install
 
-> **Hand it to an AI assistant.** Open this repository in Claude Code, Codex, or any other AI assistant you like, tell it where your own game file and `prod.keys` are, and ask it to build and install the app and to sort out whatever comes up on your Mac. It follows the [install skill](.claude/skills/install-zelda/SKILL.md), runs every step and checks the result; you just wait with a coffee. Installing and testing by hand is not recommended: there are many steps, and every Mac, game version and dump is a little different. That's why I haven't provided a one-click build option: an AI assistant is my one-click build option.
->
+> **Hand it to an AI assistant.** Open this repository in Claude Code, Codex, or any other AI assistant you like, tell it where your own game file and `prod.keys` are, and ask it to build and install the app and to sort out whatever comes up on your Mac. It follows the [install skill](.claude/skills/install-zelda/SKILL.md), runs every step and checks the result; you just wait with a coffee. Installing and testing by hand is not recommended: there are many steps, and every Mac, game version and dump is a little different. That's why I haven't provided a one-click build option: an AI assistant is my one-click build option. For Red Alert 2 it needs only your own Steam install (no `prod.keys`) and follows [its own skill](.claude/skills/install-ra2/SKILL.md).
 
 ### Install skill
+
 > **The install skill** ([`.claude/skills/install-zelda/SKILL.md`](.claude/skills/install-zelda/SKILL.md)) is a short guide written for the assistant: which of your files goes where, the command for your case, how long each step takes (a build is 20–40 minutes; it must not be stopped), and the fix for each common error. Claude Code finds it by itself (or type `/install-zelda`). With any other assistant, start with: *"Read .claude/skills/install-zelda/SKILL.md and follow it to install Tears of the Kingdom for me."*
+>
+> **Red Alert 2** has its own: [`.claude/skills/install-ra2/SKILL.md`](.claude/skills/install-ra2/SKILL.md) (`/install-ra2`), for the Mac and iPhone / iPad builds, the movies made smaller for the phone and the Chinese languages. *"Read .claude/skills/install-ra2/SKILL.md and follow it to install Red Alert 2 for me."*
 
 ## Let's maintain the shader list together: no more stutter
 
@@ -88,6 +90,7 @@ Everything from building the app to playing is in **[docs/install.md](docs/insta
 - [What you need](docs/install.md#what-you-need) · [Build with a window](docs/install.md#build-with-a-window) · [Build the app](docs/install.md#build-the-app) · [Breath of the Wild](docs/install.md#breath-of-the-wild) · [iPhone and iPad](docs/install.md#iphone-and-ipad) · [Apple Vision Pro](docs/install.md#apple-vision-pro)
 - [Controls](docs/controls.md) · [Where things are](docs/install.md#where-things-are) · [Known issues](docs/install.md#known-issues)
 - [Test records](docs/test-records.md)
+- Red Alert 2 and Yuri's Revenge: [windows_games/ra2/install.md](windows_games/ra2/install.md)
 
 ## How it works
 
@@ -166,15 +169,17 @@ Apple、Mac、iPhone、iPad、Apple Vision Pro 和 Metal 是 Apple Inc. 的商�
 
 | 游戏 | 版本 | 平台 | 状态 | 目录 |
 |---|---|---|---|---|
-| 命令与征服：红色警戒 2 及尤里的复仇 | 1.006 和 1.001（Steam 版） | Mac、iPhone、iPad | 社区移植；能打遭遇战，Mac 上能存读档 | [`windows_games/ra2`](windows_games/ra2/install.zh-CN.md) |
+| 命令与征服：红色警戒 2 及尤里的复仇 | 1.006 和 1.001（Steam 版） | Mac、iPhone、iPad | 社区移植；Mac 和 iPhone 14 上能打遭遇战，Mac 上能存读档；英文、繁體中文、简体中文 | [`windows_games/ra2`](windows_games/ra2/install.zh-CN.md) |
 
 ### 推荐的安装
 
-> **交给 AI 助理。** 用 Claude Code、Codex 或其他你喜欢的 AI 助理打开这个仓库，告诉它你自己的游戏文件和 `prod.keys` 在哪，让它帮你打包、安装 App，遇到这台 Mac 上的问题也让它处理。它会按[安装 skill](.claude/skills/install-zelda/SKILL.md) 一步步跑完并检查结果，你只需要喝杯咖啡等着。不推荐自己手动安装测试：步骤多，每台 Mac、每个游戏版本、每份导出的游戏文件都有些差别。这也是我没有提供一键打包的原因：AI 助理就是我的一键打包。
->
+> **交给 AI 助理。** 用 Claude Code、Codex 或其他你喜欢的 AI 助理打开这个仓库，告诉它你自己的游戏文件和 `prod.keys` 在哪，让它帮你打包、安装 App，遇到这台 Mac 上的问题也让它处理。它会按[安装 skill](.claude/skills/install-zelda/SKILL.md) 一步步跑完并检查结果，你只需要喝杯咖啡等着。不推荐自己手动安装测试：步骤多，每台 Mac、每个游戏版本、每份导出的游戏文件都有些差别。这也是我没有提供一键打包的原因：AI 助理就是我的一键打包。红警 2 只需要你自己的 Steam 版游戏（不要 `prod.keys`），按[它自己的 skill](.claude/skills/install-ra2/SKILL.md) 走。
 
 ### 安装 skill
+
 > **安装 skill**（[`.claude/skills/install-zelda/SKILL.md`](.claude/skills/install-zelda/SKILL.md)）是写给 AI 助理的简短指南：你的哪个文件放在哪个参数、你这种情况用哪条命令、每一步要多久（一次打包 20–40 分钟，中途不能停），以及常见报错各怎么解决。Claude Code 会自己找到它（也可以输入 `/install-zelda`）。用其他 AI 助理时，第一句这样说：*“读 .claude/skills/install-zelda/SKILL.md，按它帮我安装王国之泪。”*
+>
+> **红警 2** 有自己的 skill：[`.claude/skills/install-ra2/SKILL.md`](.claude/skills/install-ra2/SKILL.md)（`/install-ra2`），包括 Mac 和 iPhone / iPad 打包、给手机缩小的动画和中文。*“读 .claude/skills/install-ra2/SKILL.md，按它帮我安装红警 2。”*
 
 ## 让我们一起维护着色器清单：游戏不再卡顿
 
@@ -198,6 +203,7 @@ Apple、Mac、iPhone、iPad、Apple Vision Pro 和 Metal 是 Apple Inc. 的商�
 - [需要准备](docs/install.zh-CN.md#需要准备) · [打包 App](docs/install.zh-CN.md#打包-app) · [旷野之息](docs/install.zh-CN.md#旷野之息) · [iPhone 和 iPad](docs/install.zh-CN.md#iphone-和-ipad) · [Apple Vision Pro](docs/install.zh-CN.md#apple-vision-pro)
 - [操作](docs/controls.zh-CN.md) · [文件位置](docs/install.zh-CN.md#文件位置) · [已知问题](docs/install.zh-CN.md#已知问题)
 - [测试记录](docs/test-records.zh-CN.md)
+- 红警 2 和尤里的复仇：[windows_games/ra2/install.zh-CN.md](windows_games/ra2/install.zh-CN.md)
 
 ## 工作原理
 
