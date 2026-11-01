@@ -12,7 +12,7 @@
 #include "game_language.h"
 #include <string.h>
 #include <sys/mman.h>
-#include <sys/sysctl.h>   /* hw.memsize: the 12 GiB guest wants a 16 GB-plus Mac */
+#include "output_memory.h"   /* HEAP_CAP / LOW_SIZE from the application pool */
 
 #include <time.h>
 #include <unistd.h>
@@ -47,18 +47,10 @@ static int dram_8gb(void){
  static int v=-1;if(v<0){const char *e=getenv("TOTK_DRAM_8GB");v=e&&*e&&strcmp(e,"0");}return v;
 #endif
 }
-/* The output/scene overlays grow the texture heaps (runtime_output_res_extra_bytes, scripts/make_output_res_overlay.py):
-   a scene at the canvas (TOTK_RENDER_RES auto, a 4K canvas renders 3840x2160) adds ~1.35 GiB, past the 8 GB mode's
-   6.8 GiB application pool and 7 GiB heap cap - nninitStartup would break while creating them (user 2026-10-31). Give
-   that build a bigger guest - 12 GiB of guest RAM wants a 16 GB-plus Mac (hw.memsize); smaller ones keep the 8 GiB
-   layout, where TOTK_RENDER_RES=0 and --no-native-4k are the escapes. The reservation is PROT_NONE, so the machine
-   only pays for what the game touches. */
-static uint64_t heap_extra(void){static uint64_t v;if(!v)v=runtime_output_res_extra_bytes();return v;}
-static int big_ram(void){static int v;if(!v){uint64_t mem=0;size_t l=sizeof mem;sysctlbyname("hw.memsize",&mem,&l,NULL,0);v=mem>=16ULL<<30;}return v;}
 #if TARGET_OS_IPHONE
 #define LOW_SIZE (HEAP_OFF+HEAP_CAP)   /* iOS: no slack after the heap cap; address space is scarce */
 #else
-#define LOW_SIZE (dram_8gb()?(heap_extra()>=1ULL<<30&&big_ram()?12ULL<<30:8ULL<<30):6ULL<<30)   /* 12 GiB: room for the scene heaps after the stack; 8 GiB: room for the 7 GiB heap cap */
+#define LOW_SIZE output_low_size(dram_8gb()?8ULL<<30:6ULL<<30, HEAP_OFF, HEAP_CAP)   /* Preserve the old reservation unless the expanded heap needs more address space. */
 #endif
 #define STACK_OFF 0x10000000ULL
 #define STACK_SIZE 0x10000000ULL
@@ -79,7 +71,12 @@ static uint8_t user_exception_context[0x1000] __attribute__((aligned(0x1000)));
 #else
 #define GAME_PROGRAM_ID 0x0100f2c0115b6000ULL
 #endif
-#define HEAP_CAP (dram_8gb()?(heap_extra()>=1ULL<<30&&big_ram()?10ULL<<30:7ULL<<30):4ULL<<30)   /* 1.4.3 sets a 2.2 GiB heap during nninitStartup; ~5.8 GiB in the 8 GB mode, and the scene heaps add ~1.35 GiB more */
+/* The heap region (GetInfo 5) holds at least the application pool (GetInfo 6): no heap can be bigger than all the
+   memory, and a pool the output / scene overlays grew (runtime_output_res_extra_bytes) needs its heap to grow with it -
+   the 8 GB mode with the scene at a 4K canvas broke nninitStartup at the fixed 7 GiB (PR #1470, after PR #1515). The
+   region is address space only (PROT_NONE until the game maps it), so no host memory size decides it; LOW_SIZE grows
+   with it. iOS grows no pool: its cap stays the retail one. */
+#define HEAP_CAP output_heap_capacity(dram_8gb()?7ULL<<30:4ULL<<30, APP_POOL)
 #define APP_POOL app_pool()
 static uint64_t app_pool(void){static uint64_t v;if(!v){const char *e=getenv("TOTK_APP_POOL");uint64_t extra=(runtime_output_res_extra_bytes()+0x1fffff)&~0x1fffffULL;
  v=e?strtoull(e,NULL,0):(dram_8gb()?0x1b3400000ULL:0xcd500000ULL)+extra;if(!e&&extra)fprintf(stderr,"[totk] application pool %#llx: +%llu MiB for the bigger texture heaps (TOTK_OUTPUT_RES, TOTK_RENDER_RES)\n",(unsigned long long)v,(unsigned long long)(extra>>20));}return v;}

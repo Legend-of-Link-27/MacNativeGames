@@ -894,11 +894,13 @@ static FILE *mng_open_base(const char *path) {
     return source/'hactool'
 
 
-def remove_4k_overlay(tree, version):
-    """The overlays for a 3840x2160 canvas (with or without a scene size) left by an earlier build are removed before each
-    build: without native 4K the runtime then keeps 2560x1440 as its largest output size (its swapchain and heaps;
-    runtime/game_patches_v143.c), with it the build makes the current set again."""
-    for folder in (tree / f'extracted/{version}/romfs-patches-out').glob('3840x2160*'):
+def remove_large_output_overlays(tree, version):
+    """The 4K and 5K canvas overlays (with or without a scene size) left by an earlier build are removed before each
+    build: without either option the runtime keeps 2560x1440 as its largest output size (its swapchain and heaps;
+    runtime/game_patches_v143.c), with the options the build makes the current set again."""
+    for folder in (tree / f'extracted/{version}/romfs-patches-out').glob('*'):
+        if not folder.name.startswith(('3840x2160', '5120x2880')):
+            continue
         if folder.is_dir():
             shutil.rmtree(folder)
 
@@ -917,7 +919,8 @@ def native_4k_default(memory=None):
     return memory >= NATIVE_4K_MEMORY - (256 << 20)   # 16 GB Macs report exactly 16 GiB; a little slack
 
 
-def step_update_data(tree, game, update, keys, logs, *, version='v112', mod=None, native_4k=False):
+
+def step_update_data(tree, game, update, keys, logs, *, version='v112', mod=None, native_4k=False, native_5k=False):
     expected = VERSIONS[version]
     folder = tree/f'extracted/{version}/romfs'
     index = folder/'index.json'
@@ -946,12 +949,16 @@ def step_update_data(tree, game, update, keys, logs, *, version='v112', mod=None
     if version in ('v143', 'v121'):   # a TOTK_RENDER_RES scene above 1600x900 grows the same heaps (runtime/game_patches*.c)
         steps += [('make_output_res_overlay.py', [canvas, '--scene', scene])
                   for canvas in ('1920x1080', *OUTPUT_SIZES) for scene in ('1920x1080', *OUTPUT_SIZES)]
-    remove_4k_overlay(tree, version)   # an earlier build's 4K overlays go; native 4K makes the current ones
+    remove_large_output_overlays(tree, version)   # remove stale 4K/5K overlays even when a later build disables them
     if native_4k:   # the runtime takes 3840x2160 as its largest output size (the settings panel gains native 4K)
         steps.append(('make_output_res_overlay.py', ['3840x2160']))   # TOTK_RENDER_RES=0: the game's own scene size
         # 3840x2160: the scene at the canvas size (runtime/game_patches*.c); 1920x1080 / 2560x1440: TOTK_RENDER_RES
         steps += [('make_output_res_overlay.py', ['3840x2160', '--scene', scene])
                   for scene in ('1920x1080', '2560x1440', '3840x2160')]
+    if native_5k:
+        steps.append(('make_output_res_overlay.py', ['5120x2880']))
+        steps += [('make_output_res_overlay.py', ['5120x2880', '--scene', scene])
+                  for scene in ('1920x1080', '2560x1440', '3840x2160', '5120x2880')]
     for i, (script, arguments) in enumerate(steps):
         if heapdef and script == 'make_output_res_overlay.py':   # every variant of the file keeps the mod's heap sizes
             arguments = [*arguments, '--heapdef', heapdef]
@@ -2091,6 +2098,9 @@ def parse_args(argv):
                     help='Mac, 1.4.3: the settings panel also offers native 4K (a 3840x2160 canvas, UI and scene); the game then '
                          'reserves its swapchain and texture heaps for 4K (about 1.4 GiB more memory, whatever is shown). '
                          'On by default on a Mac with 16 GB of memory or more; --no-native-4k turns it off')
+    ap.add_argument('--native-5k', action='store_true',
+                    help='Mac, 1.4.3: opt in to native 5120x2880 canvas, UI and scene; includes the 4K modes and '
+                         'reserves about 2.7 GiB more guest memory than a standard app at every start')
     fonts = ap.add_mutually_exclusive_group()
     fonts.add_argument('--firmware', type=Path, help='unpacked firmware NCA directory providing the six expected shared fonts (needed for NSP unless --shared-fonts or valid cached fonts are available; Breath of the Wild 1.9.0 too)')
     fonts.add_argument('--shared-fonts', type=Path, help='previously extracted shared-font directory containing the six verified .bfttf files')
@@ -2158,6 +2168,8 @@ def main(argv):
     # The game decides the platforms, the work folder and the disk space needed, so it is identified before those checks.
     tree = prepare_work(work, py, logs)
     which = identify_game(tree, game, keys, logs)
+    if args.native_5k and which != 'totk':
+        raise BuildError('--native-5k is only available for Tears of the Kingdom 1.4.3 on Mac')
     if kind == 'nsp' and which != 'botw' and not fonts_given:   # only Breath of the Wild's fonts passed the check above
         raise no_fonts
     if dlcs and which != 'botw':
@@ -2260,19 +2272,25 @@ def main(argv):
         version, update = identify_update(tree, update, keys, logs)
     if args.native_4k and (args.platform != 'macos' or version not in ('v143', 'v121')):
         raise BuildError('--native-4k needs 1.2.1 or the 1.4.3 update and a Mac build (the other versions and iPhone / iPad have no 4K output)')
-    native_4k = args.native_4k
+    if args.native_5k and (args.platform != 'macos' or version != 'v143'):
+        raise BuildError('--native-5k needs the 1.4.3 update and a Mac build')
+    if args.native_5k and args.native_4k is False:
+        raise BuildError('--native-5k includes native 4K; omit --no-native-4k')
+    native_4k = True if args.native_5k else args.native_4k
     if native_4k is None:
         native_4k = args.platform == 'macos' and version in ('v143', 'v121') and native_4k_default()
     if version in ('v143', 'v121') and args.platform == 'macos':
         say('native 4K: ' + ('on' if native_4k else 'off') + ('' if args.native_4k is not None else
             ' (this Mac has ' + ('16 GB or more' if native_4k else 'less than 16 GB') + ' of memory; --native-4k / --no-native-4k decide)'))
+    if args.native_5k:
+        say('native 5K: on (5120x2880 canvas and scene; opt-in)')
     step_code(tree, game, keys, env, logs, mod=None if update else code_mod)
     if update:
         step_code(tree, update, keys, env, logs, version=version,
                   mod=code_mod)   # a mod is for the updated main, not for 1.0.0
     step_data(tree, game, keys, logs, firmware=firmware, shared_fonts=shared_fonts, mod=None if update else mod)
     if update:
-        step_update_data(tree, game, update, keys, logs, version=version, mod=mod, native_4k=native_4k)
+        step_update_data(tree, game, update, keys, logs, version=version, mod=mod, native_4k=native_4k, native_5k=args.native_5k)
     if mod:
         check_mod_overlays(tree, mod, version)
     step_shaders(tree, logs, version=version)

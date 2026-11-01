@@ -102,7 +102,7 @@ int runtime_render_res(unsigned *w, unsigned *h);   /* TOTK_RENDER_RES above 160
    Native 4K (1.4.3, an app built with native 4K: build_app.py's default on a Mac with 16 GB or more): a 3840x2160
    canvas and scene (game_patches_v143.c runtime_output_res).
    runtime_output_modes: a bit (1 << mode) for each this game and start offer; 0 when the resolution cannot change. */
-enum { OUTPUT_MODE_OFF, OUTPUT_MODE_METALFX, OUTPUT_MODE_NATIVE, OUTPUT_MODE_NATIVE_METALFX, OUTPUT_MODE_720P, OUTPUT_MODE_NATIVE_4K };
+enum { OUTPUT_MODE_OFF, OUTPUT_MODE_METALFX, OUTPUT_MODE_NATIVE, OUTPUT_MODE_NATIVE_METALFX, OUTPUT_MODE_720P, OUTPUT_MODE_NATIVE_4K, OUTPUT_MODE_NATIVE_5K };
 int runtime_output_modes(void);
 int runtime_output_mode(void);
 int runtime_output_mode_set(int mode);                  /* returns 0 where that mode is not offered */
