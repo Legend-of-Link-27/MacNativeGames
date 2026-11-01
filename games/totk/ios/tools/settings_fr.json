@@ -16,7 +16,6 @@
  "Up to 60": "Jusqu'à 60",
  "Held at 30": "Bloqué à 30",
  "Touch controls": "Commandes tactiles",
- "uses the phone's gyro and haptic actuator with no controller connected; a connected controller takes over. Takes effect after relaunching the game": "utilise le gyroscope et le moteur haptique du téléphone quand aucune manette n'est connectée ; une manette connectée prend le relais. Prend effet au prochain lancement du jeu",
  "Phone gyro": "Gyroscope du téléphone",
  "Phone haptics": "Vibrations du téléphone",
  "Controller": "Manette",
@@ -66,5 +65,6 @@
  "Debug": "Débogage",
  "writes Documents/log.txt for reading on a Mac (slightly slower); off records nothing. Takes effect after relaunching the game": "écrit Documents/log.txt, à lire sur un Mac (un peu plus lent) ; désactivé, rien n'est enregistré. Prend effet au prochain lancement du jeu",
  "Debug log": "Journal de débogage",
- "on: the game's docked settings, 1920×1080 output and scene (for an M-series iPad). Off: handheld 1280×720 (960×540 inside). Takes effect after relaunching the game": "activé : réglages du mode TV du jeu, sortie et scène en 1920×1080 (pour un iPad à puce M). Désactivé : mode portable 1280×720 (960×540 en interne). Prend effet au prochain lancement du jeu"
+ "on: the game's docked settings, 1920×1080 output and scene (for an M-series iPad). Off: handheld 1280×720 (960×540 inside). Takes effect after relaunching the game": "activé : réglages du mode TV du jeu, sortie et scène en 1920×1080 (pour un iPad à puce M). Désactivé : mode portable 1280×720 (960×540 en interne). Prend effet au prochain lancement du jeu",
+ "uses the phone's gyro and haptic actuator when no controller is connected, or the controller has no gyro; a controller with motion takes the aiming over until the screen is touched (its sticks or buttons take it back). Takes effect after relaunching the game": "utilise le gyroscope et le moteur haptique du téléphone quand aucune manette n'est connectée, ou que la manette n'a pas de gyroscope ; une manette avec gyroscope prend la visée jusqu'à ce que l'écran soit touché (ses sticks ou ses boutons la reprennent). Prend effet au prochain lancement du jeu"
 }
