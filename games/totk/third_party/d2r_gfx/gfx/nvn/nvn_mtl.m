@@ -8936,9 +8936,11 @@ int mtl_pipeline_archive_tool(int argc, char **argv) {
     if (argc < 1 || !getenv("TOTK_SHADER_CACHE") || !getenv("TOTK_SHADER_SEED_DIR"))
         MDIE("pipeline-archive: TOTK_SHADER_CACHE=<folder> TOTK_SHADER_SEED_DIR=<device seed> totk-native <rewritten> pipeline-archive <list>...");
     const char *host = getenv("TOTK_PIPELINE_ARCHIVE_HOST");
-    if (!(host && !strcmp(host, "1"))) {   // the device's libraries one at a time, as before 2026-10-29 (host: warm_threads())
-        setenv("TOTK_SHADER_DEVICE_LIBS", "1", 1); setenv("TOTK_PIPELINE_ARCHIVE_BATCH", "1", 1); setenv("TOTK_WARM_THREADS", "1", 0);
-    }
+    /* Both on warm_threads() threads (8 on an M4; TOTK_WARM_THREADS=1 for one). The device's libraries went one at a time
+       until 2026-11-01: Breath of the Wild 1.6.0's two runs for an iPad took 332 s + 187 s, on 8 threads 62 s + 49 s, with
+       the same 248 recorded variants and the second run's 30,077 files byte for byte the same (the first run's pipelines
+       are not used: only its recorded variants are). */
+    if (!(host && !strcmp(host, "1"))) { setenv("TOTK_SHADER_DEVICE_LIBS", "1", 1); setenv("TOTK_PIPELINE_ARCHIVE_BATCH", "1", 1); }
     setenv("TOTK_SHADER_SEED_IN_PLACE", "1", 1);
     setenv("TOTK_PIPELINE_PREBUILT", "0", 1); unsetenv("TOTK_PIPELINE_ARCHIVE");
     mtl_init();
