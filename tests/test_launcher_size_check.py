@@ -1,4 +1,4 @@
-"""The 1.2.1 external image lookup uses size only, retaining the hash pin check."""
+"""The external game image lookup uses its size only (every version), retaining the hash pin check."""
 from pathlib import Path
 import shutil
 import subprocess
@@ -14,9 +14,9 @@ class LauncherSizeTests(unittest.TestCase):
         game = ROOT / 'games/totk'
         with tempfile.TemporaryDirectory() as d:
             binary = Path(d) / 'launcher-probe'
-            command = ['clang', '-fobjc-arc', '-O2', '-Wall', '-DTOTK_GAME_V121=1',
+            command = ['clang', '-fobjc-arc', '-O2', '-Wall', 
                        '-I' + str(game / 'third_party/d2r_gfx/gfx/nvn'), '-I' + str(game / 'runtime'),
-                       '-I' + str(game / 'app'), str(ROOT / 'tests/cheat_vm/launcher_probe.m')]
+                       '-I' + str(game / 'app'), str(ROOT / 'tests/launcher_size_probe.m')]
             for framework in ('AppKit', 'GameController', 'IOKit', 'Foundation'):
                 command += ['-framework', framework]
             subprocess.run(command + ['-o', str(binary)], check=True, capture_output=True, text=True, timeout=60)

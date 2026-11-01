@@ -1,5 +1,5 @@
 #define main packaged_launcher_main
-#include "../../games/totk/app/launcher.m"
+#include "../games/totk/app/launcher.m"
 #undef main
 #include <assert.h>
 int main(void){@autoreleasepool{
