@@ -9,6 +9,7 @@
 #include <strings.h>
 #include <time.h>
 #include <math.h>
+#include <unistd.h>
 #include "game_patches.h"
 #include "game_version.h"
 #include "aspect_math.h"   /* the aspect ratio: TOTK_ASPECT parsing */
@@ -571,11 +572,12 @@ static void patch_render_1080(Module *m) {
 /* Sizes: TOTK_OUTPUT_RES=screen takes the largest 16:9 size of the main display's native mode (not a fixed size: the Mac
    screen's largest resolution at 16:9); 1440p is 2560x1440 and 1080p the game's own size; <w>x<h> takes one 16:9 size directly, fixed (for tests). A size is 16k x 9k with
    k a multiple of 8 (both sides multiples of 8, the sizes that were tested),
-   above 1920x1080 and at most 3456x1944: the memory heap is then 3888 MiB, under the host's 4 GiB heap cap (services.c
-   HEAP_CAP). This Mac's 3456x2234 panel gives 3456x1944; 2560x1664 gives 2560x1440; 3024x1964 gives 2944x1656. The heaps
+   above 1920x1080 and at most 3840x2160 (native 4K, 2026-11-01): the memory heap is then 4080 MiB, under its
+   instruction's 4095 MiB and inside the host heap cap, which follows the application pool (services.c HEAP_CAP). This Mac's 3456x2234 panel gives 3456x1944; 2560x1664 gives 2560x1440; 3024x1964 gives 2944x1656. The heaps
    go through the two tested sizes (2560x1440: display 80, GPU 192 MiB, memory and root heaps +512 MiB; 3456x1944: 112,
-   352, +768, soaked 10 min at Kakariko) and stay at the 2K values below 2K. */
-enum { NATIVE_K_MAX = 216 };   /* 3456x1944 */
+   352, +768, soaked 10 min at Kakariko; 3840x2160: 112, 448, +960, Kakariko 2026-11-01, peak footprint 5298 MiB) and
+   stay at the 2K values below 2K. */
+enum { NATIVE_K_MAX = 240 };   /* 3840x2160: native 4K (2026-11-01; 3456x1944 was the largest size the PR tested) */
 static int native_k_from_screen(unsigned w, unsigned h) {   /* 0 = 1920x1080 or less: the shipped canvas */
     unsigned k = w / 16 < h / 9 ? w / 16 : h / 9;
     k &= ~7u;
@@ -867,13 +869,21 @@ static unsigned g_out_w, g_out_h;            /* the largest canvas: the swapchai
 static _Atomic uint64_t g_out_cur;           /* the canvas now, w | h << 32 */
 static _Atomic uint64_t *g_out_page;         /* the data page + 16: [0] {screen, render width} floats, [1] {width, height} */
 static uint8_t *g_out_main;
+/* A native 4K app (build_app.py on a Mac with 16 GB or more, --native-4k / --no-native-4k decide; user 2026-11-01: as
+   Tears of the Kingdom) carries extracted/<version>/native-4k: the largest canvas, the swapchain and the heaps are then
+   3840x2160's, the settings panel offers native 4K, and its native 2K stays 2560x1440. An app without it keeps 2K. */
+static int native_4k_app(void) {
+    static int v = -1;
+    if (v < 0) v = !ios_code() && access("extracted/" TOTK_GAME_DIR "/native-4k", R_OK) == 0;
+    return v;
+}
 #ifdef GAME_BOTW160
 static void output_parse(void) {
     if (g_out_mode >= 0) return;
     if (ios_code()) { g_out_mode = OUT_OFF; return; }   /* the phone: the game's own size (handheld 720p) */
     const char *e = getenv("TOTK_OUTPUT_RES"); unsigned a, b; char tail;
     if (e && !strcmp(e, "0")) { g_out_mode = OUT_OFF; return; }
-    if (!e || !*e || !strcmp(e, "auto")) { g_out_mode = OUT_AUTO; g_out_w = 2560; g_out_h = 1440; return; }
+    if (!e || !*e || !strcmp(e, "auto")) { g_out_mode = OUT_AUTO; g_out_w = native_4k_app() ? 3840 : 2560; g_out_h = native_4k_app() ? 2160 : 1440; return; }
     if (sscanf(e, "%ux%u%c", &a, &b, &tail) != 2 || a < 1280 || b < 720 || a > 7680 || b > 4320)
         runtime_fail("TOTK_OUTPUT_RES must be auto, 0 or <width>x<height> (1280x720 .. 7680x4320)");
     g_out_mode = OUT_FIXED; g_out_w = a; g_out_h = b;
@@ -883,7 +893,7 @@ static int g_out_start_big;   /* 1: the canvas starts at the largest size (1440p
 static void output_parse(void) {
     if (g_out_mode >= 0) return;
     if (ios_code()) { g_out_mode = OUT_OFF; return; }   /* the phone: the game's own size */
-    const char *e = getenv("TOTK_OUTPUT_RES"); int k = 160;   /* 2560x1440 */
+    const char *e = getenv("TOTK_OUTPUT_RES"); int k = native_4k_app() ? 240 : 160;   /* 3840x2160 or 2560x1440 */
     g_out_mode = OUT_AUTO;
     if (e && (!strcmp(e, "0") || !strcasecmp(e, "1080p"))) { g_out_mode = OUT_OFF; return; }
     if (e && !strcasecmp(e, "1440p")) g_out_start_big = 1;
@@ -893,7 +903,7 @@ static void output_parse(void) {
         fprintf(stderr, "[botw] native size from the screen: main display %ux%u (native mode) -> %ux%u\n", w, h, 16u * k, 9u * k);
         g_out_start_big = 1;
     } else if (e && *e && strcmp(e, "auto")) {
-        if ((k = native_k_parse(e)) < 0) runtime_fail("TOTK_OUTPUT_RES: Breath of the Wild 1.9.0 takes auto, screen, 1440p, 1080p or 0, or a fixed 16:9 size above 1920x1080 up to 3456x1944 with a width that is a multiple of 128 (2560x1440, 2944x1656, 3456x1944)");
+        if ((k = native_k_parse(e)) < 0) runtime_fail("TOTK_OUTPUT_RES: Breath of the Wild 1.9.0 takes auto, screen, 1440p, 1080p or 0, or a fixed 16:9 size above 1920x1080 up to 3840x2160 with a width that is a multiple of 128 (2560x1440, 2944x1656, 3456x1944, 3840x2160)");
         g_out_mode = OUT_FIXED; g_out_start_big = 1;
     }
     g_out_w = 16u * k; g_out_h = 9u * k;
@@ -908,8 +918,22 @@ int runtime_output_res(unsigned *w, unsigned *h) {
 }
 uint64_t runtime_output_size_current(void) { uint64_t c = atomic_load(&g_out_cur); return c ? c : 1920ull | (1080ull << 32); }
 #ifdef GAME_BOTW160
-#define OUTPUT_EXTRA (224ull << 20)
-uint64_t runtime_output_res_extra_bytes(void) { return runtime_output_res(NULL, NULL) ? OUTPUT_EXTRA : 0; }
+/* 1.6.0's heaps for a canvas of w x h (2026-11-01, for native 4K): linear in the canvas pixels through the shipped
+   1920x1080 sizes and the 2K ones played since 2026-10-23 (render targets 115 -> 320 MiB, the graphics system 48 -> 64
+   MiB, the memory heap and the root block +224 MiB), so 2K is unchanged; 3840x2160 gives 912 / 112 / +864 MiB. */
+static void heaps160(unsigned w, unsigned h, unsigned *render_mib, unsigned *gfx_mib, unsigned *extra_mib) {
+    double f = ((double)w * h - 1920.0 * 1080) / (2560.0 * 1440 - 1920.0 * 1080);
+    if (f < 0) f = 0;
+    *render_mib = (unsigned)ceil((115 + 205 * f) / 16) * 16;
+    *gfx_mib = (unsigned)ceil((48 + 16 * f) / 16) * 16;
+    *extra_mib = (unsigned)ceil((double)(*render_mib - 115 + *gfx_mib - 48) / 32) * 32;
+}
+uint64_t runtime_output_res_extra_bytes(void) {   /* services.c adds it to the application pool */
+    unsigned w, h, render, gfx, extra;
+    if (!runtime_output_res(&w, &h)) return 0;
+    heaps160(w, h, &render, &gfx, &extra);
+    return (uint64_t)extra << 20;
+}
 #else
 uint64_t runtime_output_res_extra_bytes(void) {   /* services.c adds it to the application pool */
     if (!runtime_output_res(NULL, NULL)) return 0;
@@ -998,14 +1022,16 @@ static int patch_output_res(Module *m) {
     };
     memcpy(m->base + 0x1821670, &branch[0], 4); memcpy(m->base + 0x1821674, &branch[1], 4);
     memcpy(m->base + 0x1821684, &branch[2], 4); memcpy(m->base + 0x1821688, &branch[3], 4);
-    const uint32_t heap_render = 0x52a28008u;   /* mov w8, #0x14000000: 320 MiB */
-    const uint32_t heap_gfx = 0x320603e0u;      /* mov w0, #0x4000000: 64 MiB */
-    const uint32_t heap_size = 0x52ba2000u;     /* mov w0, #0xd1000000: SetMemoryHeapSize +224 MiB */
-    const uint32_t heap_root = 0x52b9e015u;     /* mov w21, #0xcf000000: the root block +224 MiB */
+    unsigned render, gfx, extra; heaps160(w, h, &render, &gfx, &extra);
+    if (3120 + extra > 0xffff >> 4 || 3088 + extra > 0xffff >> 4) runtime_fail("the output size: the memory heap would not fit its instruction");
+    const uint32_t heap_render = 0x52a00008u | (render << 4) << 5;           /* mov w8, #<render MiB> (115 MiB shipped) */
+    const uint32_t heap_gfx = 0x52a00000u | (gfx << 4) << 5;                 /* mov w0, #<graphics MiB> (48 MiB shipped) */
+    const uint32_t heap_size = 0x52a00000u | ((3120 + extra) << 4) << 5;     /* mov w0: SetMemoryHeapSize 3120 MiB + extra */
+    const uint32_t heap_root = 0x52a00015u | ((3088 + extra) << 4) << 5;     /* mov w21: the root block 3088 MiB + extra */
     memcpy(m->base + 0x1804c44, &heap_render, 4); memcpy(m->base + 0xe550a0, &heap_gfx, 4);
     memcpy(m->base + 0xe536dc, &heap_size, 4); memcpy(m->base + 0xe53fa0, &heap_root, 4);
-    fprintf(stderr, "[botw] output: a %ux%u swapchain, starting at %s; heaps: render 320 MiB, graphics 64 MiB, +224 MiB (23 instructions verified)%s\n",
-            w, h, g_out_mode == OUT_AUTO ? "1920x1080" : "that size", g_out_mode == OUT_AUTO ? "; key 3: off -> MetalFX 2K -> native 2K" : "");
+    fprintf(stderr, "[botw] output: a %ux%u swapchain, starting at %s; heaps: render %u MiB, graphics %u MiB, +%u MiB (23 instructions verified)%s\n",
+            w, h, g_out_mode == OUT_AUTO ? "1920x1080" : "that size", render, gfx, extra, g_out_mode == OUT_AUTO ? "; the settings panel switches" : "");
     return 1;
 }
 #else
@@ -1061,7 +1087,8 @@ static int patch_output_res(Module *m) {   /* 1.9.0: the swapchain and heaps at 
     unsigned display, gpu, extra; native_heaps(k, &display, &gpu, &extra);
     unsigned cw = (unsigned)atomic_load(&g_out_cur), ch = (unsigned)(atomic_load(&g_out_cur) >> 32);
     fprintf(stderr, "[botw] output: a %ux%u swapchain, starting at %ux%u; display heap %u MiB, GPU heap %u MiB, memory and root heaps +%u MiB (30 instructions verified)%s\n",
-            w, h, cw, ch, display, gpu, extra, g_out_mode == OUT_AUTO ? (w > 2560 ? "; settings panel picture: off, MetalFX 2K, native, native 2K + MetalFX" : "; settings panel picture: off, MetalFX 2K, native, native + MetalFX") : "");
+            w, h, cw, ch, display, gpu, extra, g_out_mode != OUT_AUTO ? "" : native_4k_app() ? "; settings panel picture: off, MetalFX 2K, 720p, native 2K, native 2K + MetalFX, native 4K" :
+            w > 2560 ? "; settings panel picture: off, MetalFX 2K, 720p, native, native 2K + MetalFX" : "; settings panel picture: off, MetalFX 2K, 720p, native, native + MetalFX");
     return 1;
 }
 #endif
@@ -1098,13 +1125,17 @@ int runtime_game_fps_limit(void) {
    Otherwise off and MetalFX 2K. */
 static int output_switchable(void) { return g_out_mode == OUT_AUTO && g_out_page; }
 static unsigned output_width_now(void) { return (unsigned)(atomic_load(&g_out_cur) & 0xffffffffu); }
-/* No 4K here yet: the heaps are patched in the code (patch_output_res). */
+/* Native 4K (a native 4K app, native_4k_app): the 3840x2160 canvas; native and native + MetalFX are then 2K, as on Tears
+   of the Kingdom. */
 int runtime_output_native(int mode, unsigned *w, unsigned *h) {
     if (!output_switchable()) return 0;
+    int app4k = g_out_w >= 3840 && g_out_h >= 2160 && native_4k_app();
+    if (mode == OUTPUT_MODE_NATIVE_4K) { if (!app4k) return 0; *w = 3840; *h = 2160; return 1; }
+    if (mode == OUTPUT_MODE_NATIVE && app4k) { *w = 2560; *h = 1440; return 1; }
     if (mode == OUTPUT_MODE_NATIVE) { *w = g_out_w; *h = g_out_h; return 1; }
     if (mode != OUTPUT_MODE_NATIVE_METALFX) return 0;
 #ifdef GAME_BOTW160
-    *w = g_out_w; *h = g_out_h;
+    if (app4k) { *w = 2560; *h = 1440; } else { *w = g_out_w; *h = g_out_h; }
 #else
     if (g_out_w < 2560) return 0;   /* a screen below 2560x1440: the swapchain cannot take the 2K canvas */
     *w = 2560; *h = 1440;   /* the largest size is 2560x1440 or bigger (screen); MetalFX scales this canvas to the window */
@@ -1114,29 +1145,31 @@ int runtime_output_native(int mode, unsigned *w, unsigned *h) {
 int runtime_output_modes(void) {
     unsigned w, h;
     return 1 << OUTPUT_MODE_OFF | 1 << OUTPUT_MODE_METALFX | (output_switchable() ? 1 << OUTPUT_MODE_720P : 0) |
-           (runtime_output_native(OUTPUT_MODE_NATIVE, &w, &h) ? 1 << OUTPUT_MODE_NATIVE | 1 << OUTPUT_MODE_NATIVE_METALFX : 0);
+           (runtime_output_native(OUTPUT_MODE_NATIVE, &w, &h) ? 1 << OUTPUT_MODE_NATIVE | 1 << OUTPUT_MODE_NATIVE_METALFX : 0) |
+           (runtime_output_native(OUTPUT_MODE_NATIVE_4K, &w, &h) ? 1 << OUTPUT_MODE_NATIVE_4K : 0);
 }
 int runtime_output_mode(void) {
     extern int mfxup_enabled(void);
     if (output_switchable()) {
         unsigned w = output_width_now();
         if (w == 1280) return OUTPUT_MODE_720P;
+        if (w >= 3840 && native_4k_app() && !mfxup_enabled()) return OUTPUT_MODE_NATIVE_4K;
         if (w > 1920) return mfxup_enabled() ? OUTPUT_MODE_NATIVE_METALFX : OUTPUT_MODE_NATIVE;
     }
     return mfxup_enabled() ? OUTPUT_MODE_METALFX : OUTPUT_MODE_OFF;
 }
 int runtime_output_mode_set(int mode) {
     extern void dm_gfx_set_flag(const char *name, int value);
-    if (mode < OUTPUT_MODE_OFF || mode > OUTPUT_MODE_720P || !(runtime_output_modes() & 1 << mode)) return 0;
+    if (mode < OUTPUT_MODE_OFF || mode > OUTPUT_MODE_NATIVE_4K || !(runtime_output_modes() & 1 << mode)) return 0;
     int mfx = mode == OUTPUT_MODE_METALFX || mode == OUTPUT_MODE_NATIVE_METALFX;   /* native + MetalFX: the output stage scales the 2K canvas to the window */
     dm_gfx_set_flag("mfx_output", mfx);
     dm_gfx_set_flag("mfx_upscale", mfx);
     if (output_switchable()) {
         unsigned w = 1920, h = 1080;
-        if (mode == OUTPUT_MODE_720P) { w = 1280; h = 720; } else if (mode == OUTPUT_MODE_NATIVE || mode == OUTPUT_MODE_NATIVE_METALFX) runtime_output_native(mode, &w, &h);
+        if (mode == OUTPUT_MODE_720P) { w = 1280; h = 720; } else if (mode == OUTPUT_MODE_NATIVE || mode == OUTPUT_MODE_NATIVE_METALFX || mode == OUTPUT_MODE_NATIVE_4K) runtime_output_native(mode, &w, &h);
         if (output_width_now() != w) output_switch(w, h);
     }
-    fprintf(stderr, "[botw] picture: %s\n", mode == OUTPUT_MODE_NATIVE ? "native" : mode == OUTPUT_MODE_NATIVE_METALFX ? "native 2K, MetalFX to the window" : mode == OUTPUT_MODE_720P ? "720p" :
+    fprintf(stderr, "[botw] picture: %s\n", mode == OUTPUT_MODE_NATIVE_4K ? "native 4K" : mode == OUTPUT_MODE_NATIVE ? "native" : mode == OUTPUT_MODE_NATIVE_METALFX ? "native 2K, MetalFX to the window" : mode == OUTPUT_MODE_720P ? "720p" :
             mode == OUTPUT_MODE_METALFX ? "MetalFX 2K" : "off (1080p)");
     return 1;
 }
