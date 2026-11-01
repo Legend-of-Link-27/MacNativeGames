@@ -101,6 +101,8 @@ If `/Applications` is on another volume than the work folder, choose a folder on
 
 On a Mac with 16 GB of memory or more, a 1.4.3 build includes native 4K (the settings panel's 3840×2160 resolution); it reserves about 1.4 GiB more memory at every start. Add `--no-native-4k` to leave it out, or `--native-4k` to include it on a Mac with less memory.
 
+Native 5K is opt-in on Mac, Tears of the Kingdom 1.4.3: add `--native-5k` to include a 5120×2880 canvas, UI and scene, plus the 4K modes. It reserves about 2.7 GiB more guest memory than the standard app at every start, even at a lower selected resolution. The virtual heap grows with that budget; physical pages are committed on demand. Existing builds keep their defaults. This does not enable HDR or guarantee 120 FPS.
+
 **4. Let it run to the end.** A fresh build takes **20–40 minutes** on an M-series Mac, longer on an 8 GB Mac:
 
 | Step | Time |
