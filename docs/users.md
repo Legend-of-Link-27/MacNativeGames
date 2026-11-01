@@ -38,7 +38,8 @@ A user is never deleted by the game; their save folder stays until you remove it
 
 - The feature is the runtime's (runtime/account.c, runtime/users.h); the settings panel is Mac-only, so on
   iPhone / iPad there is no way to switch users yet — the store itself works there (one user, "Local").
-- Save sync (WebDAV, [save-sync-webdav](save-sync-webdav.md)) syncs the save areas it finds under
-  `<profile>/save/`; with several users, every user's folder is synced the same way.
+- Each user's save area is a folder under `<profile>/save/` named after the user's id, so a copy of that folder
+  (a backup, `games/totk/scripts/save_manager.py`) carries every user; save_manager.py exports and imports the
+  user in force (the one users.txt marks).
 - Tested by `tests/test_users.c` (the store: migration, add / choose, restart, corrupt files) and the settings
   panel probe (`tests/test_settings_panel.py`, the User page, including adding a user through the text bar).

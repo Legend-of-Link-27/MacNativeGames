@@ -15,8 +15,10 @@ typedef struct { uint64_t lo, hi; char name[32]; } RuntimeUser;   /* name: UTF-8
 
 /* Every user in the order they were added; returns how many were written. */
 int runtime_users_get(RuntimeUser *out, int max);
-/* The user this run opened with (the preselected one). */
+/* The user this run opened with (the preselected one); choosing another does not change it. */
 int runtime_users_active(RuntimeUser *out);
+/* The user the next launch opens with (runtime_users_choose). */
+int runtime_users_next(RuntimeUser *out);
 /* Add a user with this name (trimmed, control characters dropped, at most 31 bytes of UTF-8): its index, or -1
    when the name is empty or the console is full. Its saves start the next time it is chosen. */
 int runtime_users_add(const char *name);

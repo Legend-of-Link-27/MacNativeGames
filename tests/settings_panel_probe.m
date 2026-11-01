@@ -105,7 +105,9 @@ int runtime_users_get(RuntimeUser *out, int max) {
     for (int i = 0; i < fakeUsersCount && n < max; i++) out[n++] = fakeUsers[i];
     return n;
 }
-int runtime_users_active(RuntimeUser *out) { *out = fakeUsers[fakeUsersActive]; return 0; }
+static const int fakeUsersRunning = 0;   /* the user this run opened with: choosing another does not change it */
+int runtime_users_active(RuntimeUser *out) { *out = fakeUsers[fakeUsersRunning]; return 0; }
+int runtime_users_next(RuntimeUser *out) { *out = fakeUsers[fakeUsersActive]; return 0; }   /* the next launch's */
 int runtime_users_add(const char *name) {
     if (fakeUsersCount >= RUNTIME_USERS_MAX || !name || !*name) return -1;
     RuntimeUser *u = &fakeUsers[fakeUsersCount];
@@ -732,6 +734,7 @@ int main(int argc, const char **argv) { @autoreleasepool {
     addUser = settingsPanel.userButtons[0];
     assert(fakeUsersActive == 1 && settingsPanel.rows.count == 2 &&
            [menu(@"User (from the next launch)").titleOfSelectedItem isEqualToString:@"Zelda"]);
+    assert([menu(@"User this run").titleOfSelectedItem isEqualToString:@"Local"]);   /* this run keeps its user */
     [addUser performClick:nil];
     for (int i = 0; i < 100 && settingsOpen; i++) tick();   /* the text bar opens; the panel closed */
     assert(!settingsOpen && settingsPanel.hidden);

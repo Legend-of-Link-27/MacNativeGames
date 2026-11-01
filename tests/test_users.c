@@ -80,7 +80,8 @@ static void mutations(void) {
     assert(me[0] == u[0].lo && me[1] == u[0].hi);           /* this run keeps its user */
     assert(!runtime_users_choose(2) && !runtime_users_choose(2));
     runtime_account_uid(me); assert(me[0] == u[0].lo && me[1] == u[0].hi);   /* still, mid-run */
-    RuntimeUser next; assert(!runtime_users_active(&next) && next.lo == u[2].lo && next.hi == u[2].hi);
+    RuntimeUser next; assert(!runtime_users_next(&next) && next.lo == u[2].lo && next.hi == u[2].hi);   /* the next launch's */
+    RuntimeUser now; assert(!runtime_users_active(&now) && now.lo == u[0].lo && now.hi == u[0].hi);       /* this run's, still */
     assert(runtime_users_choose(-1) == -1 && runtime_users_choose(6) == -1);
     assert(runtime_users_add("七八") == 6 && runtime_users_add("九十") == 7);   /* 8, as on a console */
     assert(runtime_users_add("one too many") == -1);
@@ -115,7 +116,15 @@ static void marked_read(void) {
 static void garbage(void) {
     RuntimeUser u[RUNTIME_USERS_MAX];
     assert(runtime_users_get(u, RUNTIME_USERS_MAX) == 1 && !strcmp(u[0].name, "Local"));
-    assert(u[0].lo || u[0].hi);   /* a store where nothing parses starts over */
+    assert(u[0].lo || u[0].hi);   /* a store where nothing parses, and no saves: starts over */
+}
+static void from_saves(void) {
+    RuntimeUser u[RUNTIME_USERS_MAX];
+    assert(runtime_users_get(u, RUNTIME_USERS_MAX) == 2);   /* the two save areas, not a fresh identity */
+    int a = u[0].lo == 0x0000000000000001ull ? 0 : 1;
+    assert(u[a].hi == 0xaaaabbbbccccddddull && u[!a].lo == 0x2122232425262728ull && u[!a].hi == 0x3132333435363738ull);
+    uint64_t me[2]; runtime_account_uid(me);
+    assert(me[0] == u[0].lo && me[1] == u[0].hi);
 }
 
 int main(int argc, char **argv) {
@@ -180,6 +189,16 @@ int main(int argc, char **argv) {
     write_file("users.txt", "nothing here\n", 13);
     scenario(garbage);
 
-    puts("pass: users (fresh profile, legacy identity, add / choose and the running user, names cleaned, 8 the most, the game's view, restart, corrupt file, unparsable file)");
+    new_dir();   /* a damaged store and no account.uid, but two users' save areas: they come back, saves and all */
+    write_file("users.txt", "nothing here\n", 13);
+    {
+        char path[512]; snprintf(path, sizeof path, "%s/save", dir); assert(!mkdir(path, 0700));
+        snprintf(path, sizeof path, "%s/save/aaaabbbbccccdddd0000000000000001", dir); assert(!mkdir(path, 0700));
+        snprintf(path, sizeof path, "%s/save/31323334353637382122232425262728", dir); assert(!mkdir(path, 0700));
+        snprintf(path, sizeof path, "%s/save/not-a-user", dir); assert(!mkdir(path, 0700));
+    }
+    scenario(from_saves);
+
+    puts("pass: users (fresh profile, legacy identity, add / choose and the running user, names cleaned, 8 the most, the game's view, restart, corrupt file, unparsable file, users from their save areas)");
     return 0;
 }

@@ -33,7 +33,7 @@
 
 - 功能在运行时（runtime/account.c、runtime/users.h）；设置面板仅 Mac，iPhone / iPad 暂时没有切换用户的
   界面——存储本身在那里照常工作（一个用户 "Local"）。
-- 存档同步（WebDAV，[save-sync-webdav](save-sync-webdav.zh-CN.md)）同步 `<profile>/save/` 下的存档区；多个
-  用户时每个用户的文件夹都按同样方式同步。
+- 每个用户的存档区是 `<profile>/save/` 下以用户 id 命名的文件夹，复制这个文件夹（备份、
+  `games/totk/scripts/save_manager.py`）就带上所有用户；save_manager.py 导出导入的是当前用户（users.txt 标记的那个）。
 - 测试：`tests/test_users.c`（存储：迁移、添加/切换、重启、损坏文件）与设置面板探针
   （`tests/test_settings_panel.py`，用户页，含通过文字输入条添加用户）。

@@ -9,6 +9,7 @@
 #include <sys/file.h>
 #include <unistd.h>
 #include <errno.h>
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -55,8 +56,26 @@ static void users_file_save(void){
  snprintf(tmp,sizeof tmp,"%s.tmp-%d",path,getpid());
  FILE *f=fopen(tmp,"w");if(!f){fprintf(stderr,"[totk] users: cannot write %s\n",tmp);return;}
  for(int i=0;i<usersCount;i++){char hex[33];hex32(hex,&users[i]);fprintf(f,"%s%s\t%s\n",i==usersActive?"*":"",hex,users[i].name);}
- if(fclose(f)){unlink(tmp);return;}
- if(rename(tmp,path))fprintf(stderr,"[totk] users: cannot replace %s\n",path);
+ /* on the disk before it replaces the old store, and the rename itself too: a power loss leaves the old or the new one */
+ if(fflush(f)||fsync(fileno(f))){fprintf(stderr,"[totk] users: cannot write %s\n",tmp);fclose(f);unlink(tmp);return;}
+ if(fclose(f)){fprintf(stderr,"[totk] users: cannot write %s\n",tmp);unlink(tmp);return;}
+ if(rename(tmp,path)){fprintf(stderr,"[totk] users: cannot replace %s\n",path);unlink(tmp);return;}
+ int d=open(usersDir,O_RDONLY|O_DIRECTORY);if(d<0||fsync(d))fprintf(stderr,"[totk] users: cannot sync %s\n",usersDir);if(d>=0)close(d);
+}
+/* Users whose save areas are there (<dir>/save/<32 hex digits>, fs_host.c names them so) but whom no store names: a
+   users.txt that was lost or damaged loses no saves, its users come back from their folders. */
+static void users_from_saves(void){
+ char path[4200];if(snprintf(path,sizeof path,"%s/save",usersDir)>=(int)sizeof path)return;
+ DIR *d=opendir(path);if(!d)return;
+ struct dirent *e;
+ while((e=readdir(d))&&usersCount<RUNTIME_USERS_MAX){
+  Uid uid;if(e->d_type!=DT_DIR||!parse32(e->d_name,&uid)||(!uid.lo&&!uid.hi)||user_of(&uid))continue;
+  RuntimeUser *u=&users[usersCount];u->lo=uid.lo;u->hi=uid.hi;
+  if(usersCount)snprintf(u->name,sizeof u->name,"User %d",usersCount+1);else strcpy(u->name,"Local");
+  fprintf(stderr,"[totk] users: \"%s\" taken back from its save area %s\n",u->name,e->d_name);
+  usersCount++;
+ }
+ closedir(d);
 }
 /* Reads users.txt into users[]; returns the marked user's index, or -1 when none is marked. */
 static int users_file_load(void){
@@ -88,6 +107,8 @@ static void initialize(void){
   char path[4200];snprintf(path,sizeof path,"%s/account.uid",usersDir);
   int fd=open(path,O_RDWR|O_NOFOLLOW,0600);
   if(fd<0&&errno!=ENOENT)runtime_fail("open local account identity");
+  if(fd<0)users_from_saves();   /* no identity file: users whose save areas are there come first */
+  if(fd<0&&usersCount){marked=0;users_file_save();goto loaded;}
   if(fd<0){arc4random_buf(&legacy,sizeof legacy);while(!legacy.lo&&!legacy.hi)arc4random_buf(&legacy,sizeof legacy);}
   else{
    if(flock(fd,LOCK_EX))runtime_fail("lock local account identity");
@@ -97,8 +118,10 @@ static void initialize(void){
    close(fd);
   }
   users[0].lo=legacy.lo;users[0].hi=legacy.hi;strcpy(users[0].name,"Local");usersCount=1;marked=0;
+  users_from_saves();   /* a damaged store: the other users' save areas are still there */
   users_file_save();
  }
+loaded:
  usersActive=marked>=0?marked:0;
  local.lo=users[usersActive].lo;local.hi=users[usersActive].hi;
  lock_release();
@@ -118,7 +141,11 @@ int runtime_users_get(RuntimeUser *out,int max){
  initialize();if(!out||max<0)return 0;
  lock_acquire();int n=0;for(int i=0;i<usersCount&&n<max;i++)out[n++]=users[i];lock_release();return n;
 }
-int runtime_users_active(RuntimeUser *out){
+int runtime_users_active(RuntimeUser *out){   /* the user this run opened with (local), not the next launch's */
+ initialize();if(!out)return -1;
+ lock_acquire();const RuntimeUser *u=user_of(&local);if(u)*out=*u;lock_release();return u?0:-1;
+}
+int runtime_users_next(RuntimeUser *out){
  initialize();if(!out)return -1;
  lock_acquire();*out=users[usersActive];lock_release();return 0;
 }

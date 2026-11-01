@@ -74,7 +74,7 @@
                                                              off; graphics-effects.txt lists the ones that are off
    User (runtime/users.h, docs/users.md; the save area is named after the user's id, so another user
    plays on their own saves; a running game keeps its user)
-     user this run        fixed (greyed)                     runtime_users_active: the preselected user
+     user this run        fixed (greyed)                     runtime_users_active: the user this run opened with
                                                              the game opened with, as on a console
      user                 pop-up of the users,               runtime_users_choose: names the user the next launch opens
                           from the next launch               with (at most 8, as on a console)
@@ -574,16 +574,16 @@ static NSArray<TOTKSettingRow *> *settings_rows(void) {
  NSUInteger input=rows.count;
  /* User (runtime/users.h, docs/users.md): the user this run opened with, and the one the next launch gets — the save
     area is named after the user's id, so another user plays on their own saves. A running game keeps its user. */
- RuntimeUser usersAll[RUNTIME_USERS_MAX],usersMe;
+ RuntimeUser usersAll[RUNTIME_USERS_MAX],usersMe,usersNext;
  int usersCount=runtime_users_get(usersAll,RUNTIME_USERS_MAX);
- runtime_users_active(&usersMe);
+ int usersMeOk=!runtime_users_active(&usersMe);runtime_users_next(&usersNext);
  NSMutableArray<NSString *> *userNames=[NSMutableArray array];NSMutableArray<NSNumber *> *userIndex=[NSMutableArray array];
  int userPicked=0;
  for(int i=0;i<usersCount;i++){
   [userNames addObject:@(usersAll[i].name)];[userIndex addObject:@(i)];
-  if(usersAll[i].lo==usersMe.lo&&usersAll[i].hi==usersMe.hi)userPicked=i;
+  if(usersAll[i].lo==usersNext.lo&&usersAll[i].hi==usersNext.hi)userPicked=i;
  }
- [rows addObject:settings_fixed(settings_text("本次运行的用户","User this run"),usersCount?@(usersMe.name):settings_text("（无）","(none)"))];
+ [rows addObject:settings_fixed(settings_text("本次运行的用户","User this run"),usersMeOk?@(usersMe.name):settings_text("（无）","(none)"))];
  [rows addObject:settings_row(settings_text("用户（下次启动生效）","User (from the next launch)"),userNames,userIndex,
   ^int{return userPicked;},^(int v){runtime_users_choose(v);
    /* the list's order does not change, but the pick does: the row is made again with the new one in force */
