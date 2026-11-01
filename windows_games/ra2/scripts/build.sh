@@ -15,8 +15,10 @@ BUILD="${BUILD_DIR:-$ROOT/build/main}"
 export GENERATED_DIR="${GENERATED_DIR:-$ROOT/game/generated}"
 JOBS="${JOBS:-6}"   # 16 GB of memory: 6 compilers at most for the generated code
 
+# -U: pkg-config (ffmpeg) is asked again on every configure, so an upgraded
+# library's dependencies are seen (CMake keeps its first answer otherwise).
 configure() {
-  cmake -S "$ROOT" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  cmake -S "$ROOT" -B "$BUILD" -G Ninja -U '__pkg_config_checked_*' -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
     -DRECOMP_LLVM_ROOT="${RECOMP_LLVM_ROOT:-/opt/homebrew/opt/llvm}" -DGAME_DIR="$INSTALL" \
     -DRA2_GENERATED="$GENERATED_DIR/ra2" -DYR_GENERATED="$GENERATED_DIR/yr" > /dev/null

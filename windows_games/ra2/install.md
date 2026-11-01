@@ -79,7 +79,10 @@ python3 -I scripts/ios/install_device.py [--game game/install]   # signs with yo
 ```
 
 The app reads the games from its Documents folder: copy your install there as `RA2` (Finder › iPhone › Files), or pass
-`--game` to `install_device.py`. The touch controls (stick, group buttons, force fire, cancel) appear in a match. The
+`--game` to `install_device.py`. With `--game` the movie archives go as compact copies made once on the Mac
+(`scripts/ios/compact_movies.py`, needs `brew install ffmpeg`, about 10 minutes the first time): every movie's frames
+re-encoded from Bink to VP9 and Opus, about 1.1 GB on the phone instead of 1.9 GB; `--full-movies` sends the originals.
+The touch controls (stick, group buttons, force fire, cancel) appear in a match. The
 app icon is drawn by `scripts/ios/make_icon.py` (original artwork, no game assets or publisher logos).
 
 ## Chinese
@@ -93,7 +96,8 @@ reads before its MIX files. The MIX public key it needs is read from your own `g
 
 `tests/mmx_test.cpp` checks every MMX instruction against values worked out by hand from the Intel manual:
 `clang++ -std=c++20 -I third_party/x86recomp/src tests/mmx_test.cpp -o build/mmx_test && build/mmx_test`. x86recomp's
-own tests (`ctest --test-dir build/main`) include ours for compound files, code pages, frame layout and touch gestures.
+own tests (`ctest --test-dir build/main`) include ours for compound files, code pages, frame layout, touch gestures and
+compact movies; `python3 -I -B -m unittest discover -s tests` checks the compact movie archives.
 
 ## Status and notes
 

@@ -33,7 +33,10 @@ GENERATED_DIR="${GENERATED_DIR:-$ROOT/game/generated}"
 # pkg-config (ffmpeg) must see only the iOS builds.
 export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
 export PKG_CONFIG_PATH=""
-cmake -S "$ROOT" -B "$OUT/ios" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+# -U: pkg-config is asked again on every configure (CMake keeps its answer
+# otherwise, and a rebuilt ffmpeg may need another library: Opus needs
+# libswresample).
+cmake -S "$ROOT" -B "$OUT/ios" -G Ninja -U '__pkg_config_checked_*' -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT="$SDK" -DCMAKE_OSX_ARCHITECTURES=arm64 \
   -DCMAKE_OSX_DEPLOYMENT_TARGET="$IOS_MIN" \
   -DCMAKE_PREFIX_PATH="$PREFIX" -DCMAKE_FIND_ROOT_PATH="$PREFIX" \

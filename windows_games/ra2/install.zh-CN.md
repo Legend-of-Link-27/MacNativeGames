@@ -68,6 +68,9 @@ python3 -I scripts/ios/install_device.py [--game game/install]   # 用你自己�
 ```
 
 App 从自己的“文稿”读游戏：把安装目录拷进去并命名为 `RA2`（访达 › iPhone › 文件），或给 `install_device.py` 传 `--game`。
+用 `--game` 时，装着动画的 MIX 文件先在 Mac 上做一份紧凑版再拷过去（`scripts/ios/compact_movies.py`，需要
+`brew install ffmpeg`，第一次约 10 分钟）：每段动画的画面从 Bink 重新编码成 VP9 和 Opus，手机上约 1.1 GB，原来是 1.9 GB；
+`--full-movies` 拷原文件。
 对局中会出现触控控件（摇杆、编队按钮、强制攻击、取消）。App 图标由 `scripts/ios/make_icon.py` 画出（原创图形，不含游戏素材或
 发行商标志）。
 
@@ -81,7 +84,8 @@ App 从自己的“文稿”读游戏：把安装目录拷进去并命名为 `RA
 
 `tests/mmx_test.cpp` 用按 Intel 手册手算的期望值检查每条 MMX 指令：
 `clang++ -std=c++20 -I third_party/x86recomp/src tests/mmx_test.cpp -o build/mmx_test && build/mmx_test`。x86recomp 自己的
-测试（`ctest --test-dir build/main`）包括我们加的复合文件、代码页、帧布局和触控手势测试。
+测试（`ctest --test-dir build/main`）包括我们加的复合文件、代码页、帧布局、触控手势和紧凑动画测试；
+`python3 -I -B -m unittest discover -s tests` 检查紧凑动画的 MIX 文件。
 
 ## 状态
 

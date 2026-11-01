@@ -10,6 +10,10 @@
 // audio tracks; by default the first one plays. Each track has its volume
 // (BinkSetVolume by track ID).
 //
+// Compact movies (bink_format.h): the same frames as the Bink movie they
+// were made from, in another codec (VP9 and Opus: a quarter of the size, for
+// a phone), behind the original Bink header the game reads.
+//
 // The BINK struct is a guest block: games read Width, Height, Frames
 // (+0x08), FrameNum (+0x0C) and, in 1.8, NumTracks (+0xD0) and the track
 // ID list (+0x250) directly.
@@ -35,6 +39,7 @@ extern "C" {
 }
 
 #include "runtime/audio/mixer.h"
+#include "runtime/hle/bink_format.h"
 #include "runtime/hle/hle.h"
 #include "runtime/hle/kernel32_state.h"
 #include "runtime/hle/mss32.h"
@@ -48,6 +53,8 @@ using Clock = std::chrono::steady_clock;
 constexpr uint32_t kBinkFromMemory = 0x04000000, kBinkSndTrack = 0x00004000,
                    kBinkFileHandle = 0x00800000;
 constexpr uint32_t kBinkStructSize = 0x400;
+using bink::IsMovie;
+using bink::Le32;
 
 // BINK struct offsets (bink.h, 1.x; the track fields as 1.8 games read
 // them). The track ID list lives in the block too.
@@ -88,6 +95,7 @@ struct Movie {
   Clock::time_point start, paused_at;
   bool video_eof = false;
   bool replaced = false;  // a player's replacement (GameConfig::movie_replacements)
+  bool compact = false;   // a compact movie ("XRMV"): the same frames, in another codec
   int fit_h = 0;          // the replacement's: the rows it is centred in
 
   ~Movie() {
@@ -137,10 +145,6 @@ __attribute__((format(printf, 1, 2))) void OpenErrorF(const char* fmt, ...) {
   g_error = e;
 }
 
-uint32_t Le32(const uint8_t* p) {
-  return p[0] | p[1] << 8 | p[2] << 16 | uint32_t(p[3]) << 24;
-}
-
 int ReadCb(void* op, uint8_t* buf, int n) {
   auto* m = static_cast<Movie*>(op);
   int64_t left = int64_t(m->data.size()) - m->pos;
@@ -165,25 +169,6 @@ int64_t SeekCb(void* op, int64_t off, int whence) {
   return m->pos = off;
 }
 
-// Bink's skip blocks copy from the previous frame. RAD's decoder starts
-// from black; ffmpeg's first reference is all zero bytes, which is bright
-// green in YUV (the credits movie keeps its whole background as skip
-// blocks). So every frame buffer starts out black: Y 0, U/V 128, A 255.
-int BlackGetBuffer(AVCodecContext* ctx, AVFrame* f, int flags) {
-  int r = avcodec_default_get_buffer2(ctx, f, flags);
-  if (r < 0) return r;
-  const AVPixFmtDescriptor* d = av_pix_fmt_desc_get(AVPixelFormat(f->format));
-  if (!d || !(d->flags & AV_PIX_FMT_FLAG_PLANAR) || (d->flags & AV_PIX_FMT_FLAG_RGB))
-    return r;
-  for (int p = 0; p < 4 && f->data[p]; p++) {
-    int h = f->height;
-    if (p == 1 || p == 2) h = -((-h) >> d->log2_chroma_h);
-    uint8_t v = (p == 1 || p == 2) ? 128 : p == 3 ? 255 : 0;
-    std::memset(f->data[p], v, size_t(f->linesize[p]) * h);
-  }
-  return r;
-}
-
 // `threads`: decode on as many threads as there are cores (a replacement
 // movie may be far larger than the one it stands for).
 AVCodecContext* OpenDecoder(AVStream* st, bool threads = false) {
@@ -191,7 +176,7 @@ AVCodecContext* OpenDecoder(AVStream* st, bool threads = false) {
   if (!codec) return nullptr;
   AVCodecContext* c = avcodec_alloc_context3(codec);
   if (c && st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
-    c->get_buffer2 = BlackGetBuffer;
+    c->get_buffer2 = bink::BlackGetBuffer;
   if (c && threads) c->thread_count = 0;
   if (!c || avcodec_parameters_to_context(c, st->codecpar) < 0 ||
       avcodec_open2(c, codec, nullptr) < 0) {
@@ -430,7 +415,7 @@ HLE_NAMED("binkw32.dll", "_BinkOpen@8", BinkOpen, 2) {
   auto m = std::make_unique<Movie>();
   std::string what;
   if (flags & kBinkFromMemory) {
-    if (!EnsureReadable(c, src, 8) || std::memcmp(GPtr(src), "BIK", 3) != 0) {
+    if (!EnsureReadable(c, src, 8) || !IsMovie(GPtr(src))) {
       OpenErrorF("binkw32: BinkOpen: no Bink header at %08X\n", src);
       return 0;
     }
@@ -447,7 +432,7 @@ HLE_NAMED("binkw32.dll", "_BinkOpen@8", BinkOpen, 2) {
     const int fd = HostFdOfHandle(src);
     const off_t at = fd < 0 ? -1 : ::lseek(fd, 0, SEEK_CUR);
     uint8_t head[8];
-    if (at < 0 || ::pread(fd, head, 8, at) != 8 || std::memcmp(head, "BIK", 3) != 0) {
+    if (at < 0 || ::pread(fd, head, 8, at) != 8 || !IsMovie(head)) {
       OpenErrorF("binkw32: BinkOpen: no Bink movie at handle %X\n", src);
       return 0;
     }
@@ -471,19 +456,32 @@ HLE_NAMED("binkw32.dll", "_BinkOpen@8", BinkOpen, 2) {
       m->data.insert(m->data.end(), buf, buf + n);
     std::fclose(f);
   }
-  if (m->data.size() < 44) {
+  // A compact movie: its Bink header apart, the container to decode.
+  std::vector<uint8_t> header;
+  switch (bink::SplitCompact(m->data, &header)) {
+    case bink::Compact::No: break;
+    case bink::Compact::Yes:
+      m->compact = true;
+      what += " (compact)";
+      break;
+    case bink::Compact::Broken:
+      OpenErrorF("binkw32: BinkOpen(%s): a compact movie without its Bink header\n", what.c_str());
+      return 0;
+  }
+  const std::vector<uint8_t>& head = m->compact ? header : m->data;
+  if (head.size() < 44) {
     OpenErrorF("binkw32: BinkOpen(%s): truncated header\n", what.c_str());
     return 0;
   }
-  const uint8_t* h = m->data.data();
+  const uint8_t* h = head.data();
   m->frames = Le32(h + 8);
   uint32_t width = Le32(h + 20), height = Le32(h + 24);
   uint32_t rate = Le32(h + 28), div = Le32(h + 32);
   if (rate && div) m->fps = double(rate) / div;
   // Bink audio track IDs, from the header (before a replacement's data
   // takes its place).
-  std::vector<uint32_t> ids = TrackIds(m->data);
-  const bool replaced = LoadReplacement(*m, width, height, &what);
+  std::vector<uint32_t> ids = TrackIds(head);
+  const bool replaced = !m->compact && LoadReplacement(*m, width, height, &what);
   m->replaced = replaced;
   if (replaced) ids.clear();
 
@@ -493,14 +491,15 @@ HLE_NAMED("binkw32.dll", "_BinkOpen@8", BinkOpen, 2) {
   m->fmt = avformat_alloc_context();
   m->fmt->pb = m->io;
   m->fmt->flags |= AVFMT_FLAG_CUSTOM_IO;
-  if (avformat_open_input(&m->fmt, nullptr, replaced ? nullptr : av_find_input_format("bink"),
+  if (avformat_open_input(&m->fmt, nullptr,
+                          replaced || m->compact ? nullptr : av_find_input_format("bink"),
                           nullptr) < 0 ||
       avformat_find_stream_info(m->fmt, nullptr) < 0) {
     OpenErrorF("binkw32: BinkOpen(%s): ffmpeg cannot parse the movie\n", what.c_str());
     return 0;
   }
   m->vs = av_find_best_stream(m->fmt, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
-  if (m->vs < 0 || !(m->vdec = OpenDecoder(m->fmt->streams[m->vs], replaced))) {
+  if (m->vs < 0 || !(m->vdec = OpenDecoder(m->fmt->streams[m->vs], replaced || m->compact))) {
     OpenErrorF("binkw32: BinkOpen(%s): no decodable video stream\n", what.c_str());
     return 0;
   }
@@ -521,7 +520,8 @@ HLE_NAMED("binkw32.dll", "_BinkOpen@8", BinkOpen, 2) {
   Wr32(m->guest + kFrameRate, rate);
   Wr32(m->guest + kFrameRateDiv, div);
   Wr32(m->guest + kOpenFlags, flags);
-  Wr32(m->guest + kSize, uint32_t(m->data.size()));
+  // The Bink file's size (a compact movie's header still says it).
+  Wr32(m->guest + kSize, m->compact ? Le32(h + 4) + 8 : uint32_t(m->data.size()));
   Wr32(m->guest + kNumTracks, uint32_t(ids.size()));
   Wr32(m->guest + kTrackIDs, m->guest + kTrackIDList);
   for (size_t i = 0; i < ids.size(); i++) Wr32(m->guest + kTrackIDList + 4 * uint32_t(i), ids[i]);

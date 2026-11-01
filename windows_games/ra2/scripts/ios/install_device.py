@@ -16,7 +16,10 @@ and the App ID); the app is then re-signed with it. --game copies your own
 Red Alert 2 install folder into the app's Documents/RA2 (skipping files the
 phone already has at the same size, unless --force; a file the phone has
 under another case of the same name is replaced, not doubled); it is never
-put in the app bundle.
+put in the app bundle. The MIX files holding the movies go as compact copies
+(scripts/ios/compact_movies.py, made once on this Mac into
+IOS_BUILD_DIR/movies): about 1.1 GB on the phone instead of 1.9 GB, the
+movies all there; --full-movies copies the original files.
 """
 import argparse
 import json
@@ -30,6 +33,9 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.dont_write_bytecode = True  # nothing written into the source folder
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import compact_movies  # noqa: E402
 CACHE = Path.home() / 'Library/Caches/WinNativeGames/ios-signing'
 # Third-party compatibility layers and installers: not the game.
 SKIP = {'ddraw.dll', 'wined3d.dll', 'libwine.dll', 'wsock32.dll'}
@@ -152,10 +158,14 @@ def device_files(device_id, bundle_id):
     except subprocess.CalledProcessError:
         return {}
     files = r.get('result', {}).get('files', [])
-    return {f.get('relativePath', f.get('name')): f.get('size') for f in files}
+    # devicectl puts the size under "metadata".
+    return {f.get('relativePath', f.get('name')): f.get('metadata', {}).get('size', f.get('size'))
+            for f in files}
 
 
-def copy_game(device_id, bundle_id, game, force=False):
+def copy_game(device_id, bundle_id, game, force=False, compact=None):
+    """compact: lower-case file name -> the compact copy sent in its place."""
+    compact = compact or {}
     have = device_files(device_id, bundle_id)
     # The phone's own spelling of each name: the game looks names up in
     # any case, so two spellings of one file must not both be there.
@@ -164,14 +174,16 @@ def copy_game(device_id, bundle_id, game, force=False):
         if not f.is_file() or f.name.lower() in SKIP or f.name.startswith('.'):
             continue
         dest = spelled.get(f.name.lower(), f.name)
-        if not force and have.get(dest) == f.stat().st_size:
+        src = compact.get(f.name.lower(), f)
+        if not force and have.get(dest) == src.stat().st_size:
             continue
-        print(f'  copying {f.name} ({f.stat().st_size >> 20} MB)' +
+        print(f'  copying {f.name} ({src.stat().st_size >> 20} MB' +
+              (', compact movies)' if src != f else ')') +
               (f' as {dest}' if dest != f.name else ''))
         for attempt in range(3):
             r = subprocess.run(['xcrun', 'devicectl', 'device', 'copy', 'to', '--device', device_id,
                                 '--domain-type', 'appDataContainer', '--domain-identifier', bundle_id,
-                                '--source', str(f), '--destination', f'Documents/RA2/{dest}'],
+                                '--source', str(src), '--destination', f'Documents/RA2/{dest}'],
                                capture_output=True, text=True)
             if r.returncode == 0:
                 break
@@ -191,6 +203,9 @@ def main():
     ap.add_argument('--force', action='store_true',
                     help='with --game: copy every file, even those the phone has at the same size '
                          '(after switching to another install of the same files)')
+    ap.add_argument('--full-movies', action='store_true',
+                    help='with --game: copy the movie archives as they are (1.9 GB instead of '
+                         '1.1 GB), not their compact copies')
     a = ap.parse_args()
     if not a.app.is_dir():
         sys.exit(f'{a.app} not found: build it with scripts/ios/build_app.sh')
@@ -211,7 +226,11 @@ def main():
     print(f'signed; valid until {expires:%Y-%m-%d %H:%M} (run again to renew)')
     run(['xcrun', 'devicectl', 'device', 'install', 'app', '--device', dev_id, app])
     if a.game:
-        copy_game(dev_id, bundle_id, a.game, a.force)
+        compact = {}
+        if not a.full_movies:
+            print('compact movies (the first time takes a while):')
+            compact = compact_movies.compact_install(a.game, a.app.parents[1] / 'movies')
+        copy_game(dev_id, bundle_id, a.game, a.force, compact)
     print('installed. First time: Settings > General > VPN & Device Management > trust the developer.')
 
 

@@ -90,6 +90,16 @@ target_include_directories(cfb_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_compile_features(cfb_test PRIVATE cxx_std_20)
 add_test(NAME cfb COMMAND cfb_test)
 
+# bink_format_test: compact movies (runtime/hle/bink_format.h); needs
+# ffmpeg's headers.
+if(FFMPEG_FOUND)
+  add_executable(bink_format_test bink_format_test.cpp)
+  target_include_directories(bink_format_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
+  target_link_libraries(bink_format_test PRIVATE PkgConfig::FFMPEG)
+  target_compile_features(bink_format_test PRIVATE cxx_std_20)
+  add_test(NAME bink_format COMMAND bink_format_test)
+endif()
+
 # touch_gestures_test: touch-screen gestures as mouse actions
 # (runtime/hle/touch_gestures.h); portable.
 add_executable(touch_gestures_test touch_gestures_test.cpp

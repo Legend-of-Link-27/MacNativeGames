@@ -522,6 +522,10 @@ endif()
 if(RECOMP_HOST_TOOLS)
   add_subdirectory(tests)
 endif()
+# bink_decode: frames for compact movies (a game project's packaging).
+if(FFMPEG_FOUND AND RECOMP_HOST_TOOLS)
+  add_subdirectory(tools/bink_decode)
+endif()
 # Dev tool: renders the EAX capture cases with recomp_audio (eax_render).
 if(PROJECT_IS_TOP_LEVEL AND FFMPEG_FOUND AND RECOMP_HOST_TOOLS)
   add_subdirectory(tools/eax_capture)

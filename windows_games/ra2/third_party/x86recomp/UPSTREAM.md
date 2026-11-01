@@ -10,7 +10,9 @@ CORE-MATH (`74fcd10`, MIT); see `cmake/`.
 What our changes add: MMX instructions (`src/runtime/mmx.h`); DirectDraw v1/v2 interfaces and 16-bit 2D blits, colour
 keys and GetDC; DirectSound v1; OLE structured storage written from the [MS-CFB] specification (`src/runtime/cfb.*`,
 `src/runtime/hle/ole32_storage.cpp`); IMM; ANSI code pages through the system's iconv (`src/runtime/hle/codepage.*`);
-user32 dialogs and controls; the present path, screen controls and touch gestures for iOS; lifter fixes. Wine, Bochs and
+user32 dialogs and controls; the present path, screen controls and touch gestures for iOS; resizable windows; compact
+movies (Bink frames re-encoded as VP9 / Opus behind the Bink header, `src/runtime/hle/bink_format.h`,
+`tools/bink_decode`); lifter fixes. Wine, Bochs and
 GPL code were read for behaviour only, never copied.
 
 To see them against upstream:
@@ -20,13 +22,14 @@ git clone https://github.com/JTM-rootstorm/x86recomp /tmp/x86recomp && git -C /t
 diff -ru -x .git -x CLAUDE.md /tmp/x86recomp windows_games/ra2/third_party/x86recomp
 ```
 
-Files added (24):
+Files added (28):
 - `src/runtime/cfb.cpp`
 - `src/runtime/cfb.h`
 - `src/runtime/gfx/overlay.cpp`
 - `src/runtime/gfx/overlay.h`
 - `src/runtime/gfx/shaders/overlay.frag`
 - `src/runtime/gfx/shaders/overlay.vert`
+- `src/runtime/hle/bink_format.h`
 - `src/runtime/hle/codepage.cpp`
 - `src/runtime/hle/codepage.h`
 - `src/runtime/hle/comctl32.cpp`
@@ -41,10 +44,13 @@ Files added (24):
 - `src/runtime/hle/user32_dialog.cpp`
 - `src/runtime/hle/user32_internal.h`
 - `src/runtime/mmx.h`
+- `tests/bink_format_test.cpp`
 - `tests/cfb_test.cpp`
 - `tests/codepage_test.cpp`
 - `tests/frame_layout_test.cpp`
 - `tests/touch_gestures_test.cpp`
+- `tools/bink_decode/CMakeLists.txt`
+- `tools/bink_decode/bink_decode.cpp`
 
 Files changed (34):
 - `CMakeLists.txt`
