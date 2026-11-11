@@ -132,6 +132,8 @@ The [shared shader list](docs/shader-list.md) now holds **17,039 shader variants
 
 ## What's new
 
+- **2026-11-11: The Legend of Zelda: Skyward Sword HD 1.0.1 on Mac, experimental.** Built from your own files; checked from a new file
+  through the opening, about 59 fps; the corner box (key 1) shows FPS, timing and shaders built on demand ([games/ss](games/ss/README.md)).
 - **2026-11-10: The Legend of Zelda: Ocarina of Time (Switch 2) on the Mac.** Build it from your own dump (a `.nup` file or a
   dump folder with update 131072) with `build_app.py`; no keys needed. On an M4 it plays from the title into Kokiri Forest and the
   village, about 81–83 fps standing in the village at 720p or 1080p (from 720p); 720p is the default. The settings panel (key 1) has the resolution,
