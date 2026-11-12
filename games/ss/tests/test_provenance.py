@@ -14,7 +14,6 @@ AGREED = {   # Albert, 2026-11-11 ("yo alberto acepto los 12 archivos"): each ch
     'runtime/gfx/nvn/nvn_mtl.m': 38,   # 12469 -> 12507 lines over nxnative b1dee89 dm/gfx/nvn/nvn_mtl.m: MNG: feedback-snap flag (afr), statistics, non-static pso_user_path; DLSS offsets behind the macOS 27 SDK; nxnative's link-hold threshold kept, with a note
     'runtime/gfx/tools/dmsh_build.py': 12,   # 1396 -> 1408 lines over nxnative b1dee89 dm/gfx/tools/dmsh_build.py: MNG: offline Metal only, the 4-column shader map reader
     'runtime/gfx/tools/shader_split.py': 0,   # 2811 -> 2810 lines over nxnative b1dee89 dm/gfx/tools/shader_split.py: MNG: map written without source paths
-    'runtime/host/front_mac.m': 243,   # 1363 -> 1606 lines over nxnative b1dee89 dm/host/front_mac.m: MNG: settings window, corner box, shader list export, face-button layouts
     'runtime/host/hle_hid.c': 18,   # 894 -> 912 lines over nxnative b1dee89 dm/host/hle_hid.c: MNG: DM_CTL fps lines, DM_HID_LOG=2
     'runtime/host/hle_movie.c': 2,   # 875 -> 877 lines over nxnative b1dee89 dm/host/hle_movie.c: MNG: two lines of the native-texture slot handling
     'runtime/host/loader.c': 0,   # 724 -> 724 lines over nxnative b1dee89 dm/host/loader.c: MNG: AoC timing ABI and state page (weak aoc_timing_apply for host unit tests)
@@ -23,7 +22,9 @@ AGREED = {   # Albert, 2026-11-11 ("yo alberto acepto los 12 archivos"): each ch
     'runtime/tools/patch_nso.py': 0,   # 1751 -> 1751 lines over nxnative b1dee89 dm/tools/patch_nso.py: MNG: AoC timing ABI line, 0x90 state page
     'third_party/nxnative/build_ipa_from_nsp.py': 71,   # 2734 -> 2805 lines over nxnative b1dee89 scripts/build_ipa_from_nsp.py: MNG: extracted mode (this target), rewrite proof, 4-column map, offline nx_extract
 }
-PENDING = {}   # large files changed but not yet agreed (reported as skipped)
+PENDING = {   # large files changed but not yet agreed (reported as skipped)
+    'runtime/host/front_mac.m': 'growth 243 agreed 2026-11-11; +15 lines for the raw 0x30 left-stick fallback of third-party Pro Controllers (pad_read, pro_sticks_refresh)',
+}
 LIMIT = 300
 
 
